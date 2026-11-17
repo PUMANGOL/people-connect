@@ -1,0 +1,15 @@
+node_modules/
+build/
+dist/
+.next/
+coverage/
+.DS_Store
+*.log
+.env*
+!.env.example
+
+# Local Netlify folder
+.netlify
+
+# Pacotes de exportação gerados por scripts/export.sh
+plataforma-dpc-pumangol-*.zip

@@ -1,0 +1,1158 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+/* ============================================================
+   Design tokens — Corporativo Contemporâneo (design-system/MASTER.md)
+   Primária congelada: claro #1A5334 / #FFFFFF, escuro #17B85F / #06120B.
+   Escalas `navy` e `gold` mantêm os hex da marca.
+   Canvas, linha, sombra, raio, véus e tipo seguem o Master.
+   ============================================================ */
+
+@theme inline {
+    --font-heading: var(--font-outfit), sans-serif;
+    --font-sans: var(--font-outfit), sans-serif;
+    --font-mono: var(--font-jetbrains-mono), ui-monospace, monospace;
+    --ease-interaction: cubic-bezier(0.2, 0, 0, 1);
+
+    /* === Verde de marca Pumangol (escala `navy`) ===
+       Superfícies escuras (sidebar), primário, títulos e texto escuro. */
+    --color-navy-50: #ECF6EF;
+    --color-navy-100: #D2EBDA;
+    --color-navy-200: #A8D6B8;
+    --color-navy-300: #76BE92;
+    --color-navy-400: #4E7D63;
+    --color-navy-500: #2C8551;
+    --color-navy-600: #216A41;
+    --color-navy-700: #1A5334;
+    --color-navy-800: #133D27;
+    --color-navy-900: #0C2A1B;
+
+    /* === Verde de acento Pumangol (escala `gold`) ===
+       CTAs, indicadores activos, focus e destaques. */
+    --color-gold-50: #EDFCF3;
+    --color-gold-100: #D3F8E0;
+    --color-gold-200: #A9EFC3;
+    --color-gold-300: #71E19E;
+    --color-gold-400: #3FCE7C;
+    --color-gold-500: #17B85F;
+    --color-gold-600: #109A4E;
+    --color-gold-700: #0E7B40;
+    --color-gold-800: #0C5E32;
+    --color-gold-900: #0A4A28;
+
+    /* === Surface (base clara) === */
+    --color-surface: #FFFFFF;
+    --color-surface-secondary: #F3F5F8;
+    --color-surface-tertiary: #F6F8FB;
+
+    /* === Semantic — teal / âmbar / vermelho, distintos do verde de marca === */
+    --color-success-50: #F0FDFA;
+    --color-success-100: #CCFBF1;
+    --color-success-500: #0F766E;
+    --color-success-600: #0F766E;
+    --color-success-700: #115E59;
+
+    --color-warning-50: #FFFBEB;
+    --color-warning-100: #FEF3C7;
+    --color-warning-500: #B45309;
+    --color-warning-600: #B45309;
+    --color-warning-700: #92400E;
+
+    --color-error-50: #FEF2F2;
+    --color-error-100: #FEE2E2;
+    --color-error-500: #B91C1C;
+    --color-error-600: #B91C1C;
+    --color-error-700: #991B1B;
+
+    /* Mesmo coral, para faixas e pontos de marca. */
+    --color-brand-red-50:  #FDEEEE;
+    --color-brand-red-100: #F8D4D4;
+    --color-brand-red-500: #D15B5B;
+    --color-brand-red-600: #B34747;
+    --color-brand-red-700: #8E3838;
+
+    --color-info-50: #EFF6FF;
+    --color-info-100: #DBEAFE;
+    --color-info-200: #BFDBFE;
+    --color-info-500: #1D4ED8;
+    --color-info-600: #1D4ED8;
+    --color-info-700: #1E40AF;
+
+    /* === Slate frio ===
+       Canvas #F6F8FB, texto #0F172A / subtítulo #526476.
+       neutral-400 é a borda de controlo (3.34:1 sobre branco). */
+    --color-neutral-50:  #F8FAFC;
+    --color-neutral-100: #F1F5F9;
+    --color-neutral-150: #E8EEF4;
+    --color-neutral-200: #E2E8F0;
+    --color-neutral-300: #CBD5E1;
+    --color-neutral-400: #7D8EA5;
+    --color-neutral-500: #64748B;
+    --color-neutral-600: #475569;
+    --color-neutral-700: #334155;
+    --color-neutral-800: #1E293B;
+    --color-neutral-900: #0F172A;
+
+    /* === shadcn mapping === */
+    --color-sidebar-ring: var(--sidebar-ring);
+    --color-sidebar-border: var(--sidebar-border);
+    --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+    --color-sidebar-accent: var(--sidebar-accent);
+    --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+    --color-sidebar-primary: var(--sidebar-primary);
+    --color-sidebar-foreground: var(--sidebar-foreground);
+    --color-sidebar: var(--sidebar);
+    --color-chart-5: var(--chart-5);
+    --color-chart-4: var(--chart-4);
+    --color-chart-3: var(--chart-3);
+    --color-chart-2: var(--chart-2);
+    --color-chart-1: var(--chart-1);
+    --color-ring: var(--ring);
+    --color-input: var(--input);
+    --color-border: var(--border);
+    --color-destructive-foreground: var(--destructive-foreground);
+    --color-destructive: var(--destructive);
+    --color-accent-foreground: var(--accent-foreground);
+    --color-accent: var(--accent);
+    --color-muted-foreground: var(--muted-foreground);
+    --color-muted: var(--muted);
+    --color-secondary-foreground: var(--secondary-foreground);
+    --color-secondary: var(--secondary);
+    --color-primary-foreground: var(--primary-foreground);
+    --color-primary: var(--primary);
+    --color-primary-tint-5: var(--primary-tint-5);
+    --color-primary-tint-8: var(--primary-tint-8);
+    --color-primary-tint-10: var(--primary-tint-10);
+    --color-popover-foreground: var(--popover-foreground);
+    --color-popover: var(--popover);
+    --color-card-foreground: var(--card-foreground);
+    --color-card: var(--card);
+    --color-foreground: var(--foreground);
+    --color-background: var(--background);
+
+    /* === Radius — 6px badges, 8px controlos, 12px cartões. === */
+    --radius-sm:  6px;
+    --radius-md:  8px;
+    --radius-lg:  12px;
+    --radius-xl:  12px;
+    --radius-2xl: 12px;
+    --radius-3xl: 12px;
+    --radius-4xl: 12px;
+
+    /* === Shadows — ambiente em camadas, tinta slate, sem verde === */
+    --shadow-sm:         0 1px 2px rgb(15 23 42 / 0.04);
+    --shadow-card:       0 1px 2px rgb(15 23 42 / 0.04), 0 4px 12px rgb(15 23 42 / 0.04), 0 16px 32px -8px rgb(15 23 42 / 0.06);
+    --shadow-card-hover: 0 2px 4px rgb(15 23 42 / 0.04), 0 8px 20px rgb(15 23 42 / 0.06), 0 24px 40px -8px rgb(15 23 42 / 0.08);
+    --shadow-hover:      0 2px 4px rgb(15 23 42 / 0.04), 0 8px 20px rgb(15 23 42 / 0.06), 0 24px 40px -8px rgb(15 23 42 / 0.08);
+    --shadow-float:      0 8px 24px rgb(15 23 42 / 0.08), 0 2px 6px rgb(15 23 42 / 0.04);
+    --shadow-modal:      0 24px 48px -12px rgb(15 23 42 / 0.18), 0 8px 16px rgb(15 23 42 / 0.06);
+    --shadow-focus:      0 0 0 3px rgb(26 83 52 / 0.16);
+}
+
+:root {
+    --background: #F6F8FB;
+    --foreground: #0F172A;
+    --primary-tint-5: rgb(26 83 52 / 0.05);
+    --primary-tint-8: rgb(26 83 52 / 0.08);
+    --primary-tint-10: rgb(26 83 52 / 0.10);
+    --lift-border: rgb(26 83 52 / 0.22);
+    --card: #FFFFFF;
+    --card-foreground: #0F172A;
+    --popover: #FFFFFF;
+    --popover-foreground: #0F172A;
+
+    /* Primária clara — não alterar estes hex. */
+    --primary: #1A5334;
+    --primary-foreground: #FFFFFF;
+
+    --secondary: #F3F5F8;
+    --secondary-foreground: #1A5334;
+    --muted: #F3F5F8;
+    --muted-foreground: #526476;
+
+    /* Acento de marca. O hex fica #17B85F; o texto legível nesse verde é #06120B. */
+    --accent: #17B85F;
+    --accent-foreground: #06120B;
+
+    --destructive: #B91C1C;
+    --destructive-foreground: #FFFFFF;
+
+    --border: rgb(15 23 42 / 0.08);
+    --input: #7D8EA5;
+    --ring: #1A5334;
+
+    --chart-1: #1A5334;
+    --chart-2: #0F766E;
+    --chart-3: #1D4ED8;
+    --chart-4: #B45309;
+    --chart-5: #B91C1C;
+
+    --radius: 12px;
+
+    --sidebar: #0F172A;
+    --sidebar-foreground: #CBD5E1;
+    --sidebar-primary: #FFFFFF;
+    --sidebar-primary-foreground: #0F172A;
+    --sidebar-accent: rgb(255 255 255 / 0.06);
+    --sidebar-accent-foreground: #F8FAFC;
+    --sidebar-border: rgb(255 255 255 / 0.08);
+    --sidebar-ring: #17B85F;
+}
+
+.dark {
+    color-scheme: dark;
+    --background: #0F172A;
+    --foreground: #F8FAFC;
+    --card: #1E293B;
+    --card-foreground: #F8FAFC;
+    --popover: #1E293B;
+    --popover-foreground: #F8FAFC;
+    /* Primária escura — não alterar estes hex. */
+    --primary: #17B85F;
+    --primary-foreground: #06120B;
+    --secondary: #1E293B;
+    --secondary-foreground: #F8FAFC;
+    --muted: #1E293B;
+    --muted-foreground: #CBD5E1;
+    --accent: #17B85F;
+    --accent-foreground: #06120B;
+    --destructive: #F0A8A8;
+    --destructive-foreground: #2A0C0C;
+    --border: rgb(248 250 252 / 0.08);
+    --input: #64748B;
+    --ring: #17B85F;
+    --primary-tint-5: rgb(23 184 95 / 0.06);
+    --primary-tint-8: rgb(23 184 95 / 0.10);
+    --primary-tint-10: rgb(23 184 95 / 0.12);
+    --lift-border: rgb(23 184 95 / 0.35);
+    --shadow-focus: 0 0 0 3px rgb(23 184 95 / 0.28);
+}
+
+@layer base {
+    * {
+        @apply border-border;
+    }
+    body {
+        @apply bg-background text-foreground antialiased;
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
+    }
+    html {
+        @apply font-sans scroll-smooth;
+        scroll-padding-top: 72px;
+    }
+
+    h1, h2, h3 { font-family: var(--font-heading); }
+    h1 { font-size: 1.75rem; font-weight: 700; letter-spacing: -0.02em; line-height: 1.2; }
+    h2 { font-size: 1.25rem; font-weight: 600; letter-spacing: -0.02em; line-height: 1.3; }
+    h3 { font-size: 1.0625rem; font-weight: 600; letter-spacing: -0.015em; line-height: 1.35; }
+    h4 { font-size: 0.9375rem; font-weight: 600; letter-spacing: 0; line-height: 1.4; }
+    p  { line-height: 1.6; }
+    body {
+        font-size: 0.9375rem;
+        font-weight: 400;
+        line-height: 1.6;
+        color: var(--foreground);
+    }
+
+    input::placeholder,
+    textarea::placeholder {
+        color: rgb(100 116 139 / 0.7);
+        opacity: 1;
+    }
+
+    /* O foco visual vive no contentor do campo (borda + halo).
+       Um box-shadow no input interior desenha uma segunda caixa. */
+    input:not([type="checkbox"]):not([type="radio"]):focus-visible,
+    textarea:focus-visible,
+    select:focus-visible {
+        outline: none;
+        box-shadow: none;
+    }
+
+    ::selection {
+        background: rgb(26 83 52 / 0.18);
+        color: #0F172A;
+    }
+
+    /* Scrollbar mais discreta (WebKit) — global, exclui o assistente
+       porque .agent-scroll já define o seu próprio */
+    *:not(.agent-scroll)::-webkit-scrollbar {
+        width: 10px;
+        height: 10px;
+    }
+    *:not(.agent-scroll)::-webkit-scrollbar-track {
+        background: transparent;
+    }
+    *:not(.agent-scroll)::-webkit-scrollbar-thumb {
+        background: rgba(107, 116, 128, 0.28);
+        border: 2px solid transparent;
+        background-clip: padding-box;
+        border-radius: 999px;
+    }
+    *:not(.agent-scroll)::-webkit-scrollbar-thumb:hover {
+        background: rgba(107, 116, 128, 0.42);
+        background-clip: padding-box;
+    }
+}
+
+/* Acessibilidade (Story 6.6): respeitar preferencia de movimento reduzido.
+   Neutraliza animacoes/transicoes decorativas para quem activa a opcao no SO. */
+@media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+        scroll-behavior: auto !important;
+    }
+    html {
+        scroll-behavior: auto;
+    }
+    .hover-lift:hover,
+    a.rounded-xl.border.bg-white:hover,
+    a.rounded-2xl.border.bg-white:hover,
+    a.rounded-lg.border.bg-white:hover,
+    button.bg-primary:hover {
+        transform: none;
+    }
+}
+
+@utility transition-default {
+    transition-property: color, background-color, border-color, box-shadow, opacity, transform;
+    transition-duration: 200ms;
+    transition-timing-function: cubic-bezier(0.2, 0, 0, 1);
+}
+
+@utility hover-lift {
+    transition-property: color, background-color, border-color, box-shadow, opacity, transform;
+    transition-duration: 200ms;
+    transition-timing-function: cubic-bezier(0.2, 0, 0, 1);
+    &:hover {
+        box-shadow: var(--shadow-hover);
+        border-color: var(--lift-border);
+        transform: translateY(-1px);
+    }
+}
+
+/* Melhorias globais visuais — aplicadas de forma não invasiva.
+   NÃO tocar em: assistente virtual (.agent-*, .genui-*), login panel. */
+@layer base {
+
+    /* ---------- Tabelas: cabeçalho, zebra, padding ---------- */
+    table {
+        border-collapse: separate;
+        border-spacing: 0;
+        width: 100%;
+    }
+    table thead th {
+        background-color: #F3F5F8;
+        font-weight: 600;
+        font-size: 12px;
+        letter-spacing: 0.04em;
+        color: #526476;
+        text-align: left;
+        padding: 14px 16px;
+        border-bottom: 1px solid var(--border);
+    }
+    table tbody td {
+        padding: 14px 16px;
+        border-bottom: 1px solid var(--border);
+        font-size: 14px;
+        color: var(--color-neutral-800);
+    }
+    table tbody tr:nth-of-type(even) > td {
+        background-color: #F3F5F8;
+    }
+    table tbody tr:hover > td {
+        background-color: var(--primary-tint-5);
+    }
+    table td.num,
+    table th.num {
+        text-align: right;
+        font-variant-numeric: tabular-nums;
+        font-family: var(--font-mono);
+        font-weight: 500;
+        font-size: 0.8125rem;
+    }
+
+    /* ---------- Cards existentes: leve ajuste de sombra ao hover ---------- */
+    /* Só actua onde não há hover-lift explícito; assistente é isolado com .agent-* */
+    .rounded-2xl.border.bg-white,
+    .rounded-xl.border.bg-white {
+        transition: box-shadow 200ms cubic-bezier(0.2, 0, 0, 1), border-color 200ms cubic-bezier(0.2, 0, 0, 1), transform 200ms cubic-bezier(0.2, 0, 0, 1);
+    }
+    a.rounded-xl.border.bg-white:hover,
+    a.rounded-2xl.border.bg-white:hover,
+    a.rounded-lg.border.bg-white:hover {
+        box-shadow: var(--shadow-hover);
+        border-color: var(--lift-border);
+        transform: translateY(-1px);
+    }
+
+    /* ---------- Botões: transição consistente para os nativos e utilitários ---------- */
+    button {
+        transition-property: background-color, border-color, color, box-shadow, opacity, transform;
+        transition-duration: 200ms;
+        transition-timing-function: cubic-bezier(0.2, 0, 0, 1);
+    }
+    button:disabled {
+        cursor: not-allowed;
+        opacity: 0.48;
+    }
+    a {
+        cursor: pointer;
+    }
+
+    /* ---------- Reduz o "peso visual" das linhas divisórias ---------- */
+    hr {
+        border-color: var(--color-neutral-200);
+    }
+}
+
+/* ============================================================
+   Identidade Pumangol — acentos verde + vermelho + branco
+   Blocos utilitários para reforçar a marca em pontos-chave sem
+   redesign. NÃO usar em botões primários (esses ficam verdes).
+   ============================================================ */
+
+/* Stripe diagonal verde→vermelho que ecoa o logo. Usar como faixa
+   fina de identidade (2-3px) por baixo de headers, sidebars, hero
+   cards. Aplica-se via ::before/::after ou como height fixo. */
+@utility brand-stripe {
+    background: linear-gradient(
+        90deg,
+        var(--color-navy-700) 0%,
+        var(--color-navy-700) 62%,
+        var(--color-brand-red-500) 62%,
+        var(--color-brand-red-500) 100%
+    );
+    height: 3px;
+    width: 100%;
+    display: block;
+}
+
+/* Variante inclinada — ecoa a angulação do logo */
+@utility brand-stripe-angled {
+    background: linear-gradient(
+        100deg,
+        var(--color-navy-700) 0%,
+        var(--color-navy-700) 58%,
+        transparent 58%,
+        transparent 60%,
+        var(--color-brand-red-500) 60%,
+        var(--color-brand-red-500) 100%
+    );
+    height: 4px;
+    width: 100%;
+    display: block;
+    border-radius: 2px;
+}
+
+/* Ponto de destaque de identidade — para "unread", "novo", "activo" em
+   contexto de marca (não confundir com estado de erro semântico). */
+@utility brand-dot {
+    background: var(--color-brand-red-500);
+    border-radius: 999px;
+    box-shadow: 0 0 0 2px rgba(209, 91, 91, 0.18);
+}
+
+/* ============================================================
+   Agente DPC — conversation workspace
+   ============================================================ */
+
+.agent-workspace {
+  --agent-bg: #F4FAF6;
+  --agent-panel: rgba(255, 255, 255, 0.78);
+  --agent-panel-solid: #FFFFFF;
+  --agent-ink: #0C2A1B;
+  --agent-muted: #4E7D63;
+  --agent-line: rgba(26, 83, 52, 0.08);
+  --agent-gold: #17B85F;
+  --agent-navy: #1A5334;
+  --agent-user-bg: linear-gradient(145deg, #1A5334 0%, #216A41 100%);
+  --agent-assistant-bg: rgba(255, 255, 255, 0.92);
+  --agent-glow: 0 0 0 1px rgba(23, 184, 95, 0.18), 0 12px 40px rgba(26, 83, 52, 0.08);
+  position: relative;
+  isolation: isolate;
+}
+
+.agent-workspace::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background:
+    radial-gradient(1200px 500px at 10% -10%, rgba(23, 184, 95, 0.14), transparent 55%),
+    radial-gradient(900px 420px at 95% 0%, rgba(26, 83, 52, 0.08), transparent 50%),
+    radial-gradient(600px 400px at 50% 100%, rgba(23, 184, 95, 0.06), transparent 60%),
+    var(--agent-bg);
+  pointer-events: none;
+}
+
+.agent-workspace::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  opacity: 0.35;
+  background-image:
+    linear-gradient(rgba(26, 83, 52, 0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(26, 83, 52, 0.03) 1px, transparent 1px);
+  background-size: 32px 32px;
+  mask-image: radial-gradient(ellipse 80% 70% at 50% 40%, black 20%, transparent 75%);
+  pointer-events: none;
+}
+
+.agent-glass {
+  background: var(--agent-panel);
+  backdrop-filter: blur(16px) saturate(1.2);
+  -webkit-backdrop-filter: blur(16px) saturate(1.2);
+  border: 1px solid var(--agent-line);
+  box-shadow: var(--agent-glow);
+}
+
+.agent-avatar {
+  background: linear-gradient(145deg, #D3F8E0 0%, #A9EFC3 40%, #17B85F 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.55),
+    0 4px 12px rgba(23, 184, 95, 0.28);
+}
+
+.agent-avatar-ring {
+  box-shadow:
+    0 0 0 2px rgba(255, 255, 255, 0.9),
+    0 0 0 3px rgba(23, 184, 95, 0.35),
+    0 6px 16px rgba(23, 184, 95, 0.22);
+}
+
+.agent-user-bubble {
+  background: var(--agent-user-bg);
+  color: #fff;
+  box-shadow:
+    0 8px 24px rgba(26, 83, 52, 0.22),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+.agent-assistant-shell {
+  background: var(--agent-assistant-bg);
+  border: 1px solid var(--agent-line);
+  box-shadow:
+    0 1px 2px rgba(26, 83, 52, 0.04),
+    0 10px 28px rgba(26, 83, 52, 0.06);
+}
+
+.agent-composer {
+  background: rgba(255, 255, 255, 0.92);
+  border: 1px solid var(--agent-line);
+  box-shadow:
+    0 1px 2px rgba(26, 83, 52, 0.04),
+    0 12px 32px rgba(26, 83, 52, 0.08),
+    inset 0 1px 0 rgba(255, 255, 255, 0.9);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.agent-composer:focus-within {
+  border-color: rgba(23, 184, 95, 0.55);
+  box-shadow:
+    0 0 0 3px rgba(23, 184, 95, 0.18),
+    0 14px 36px rgba(26, 83, 52, 0.1);
+}
+
+.agent-send {
+  background: linear-gradient(145deg, #17B85F 0%, #109A4E 100%);
+  color: #06120B;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.35),
+    0 4px 12px rgba(23, 184, 95, 0.35);
+}
+
+.agent-send:hover:not(:disabled) {
+  filter: brightness(1.04);
+  transform: translateY(-1px);
+}
+
+.agent-send:disabled {
+  opacity: 0.45;
+  filter: grayscale(0.2);
+}
+
+.agent-suggestion-card {
+  background: linear-gradient(180deg, #FFFFFF 0%, #F1FBF5 100%);
+  border: 1px solid rgba(23, 184, 95, 0.22);
+  box-shadow: 0 4px 16px rgba(26, 83, 52, 0.05);
+  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+}
+
+.agent-suggestion-card:hover {
+  transform: translateY(-2px);
+  border-color: rgba(23, 184, 95, 0.5);
+  box-shadow: 0 10px 28px rgba(23, 184, 95, 0.14);
+}
+
+.agent-session-active {
+  background: linear-gradient(135deg, #1A5334 0%, #216A41 100%);
+  color: #fff;
+  box-shadow: 0 6px 18px rgba(26, 83, 52, 0.2);
+}
+
+.agent-typing-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: #17B85F;
+  animation: agent-bounce 1.2s ease-in-out infinite;
+}
+
+@keyframes agent-bounce {
+  0%, 80%, 100% { transform: translateY(0); opacity: 0.45; }
+  40% { transform: translateY(-4px); opacity: 1; }
+}
+
+.agent-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(26, 83, 52, 0.18) transparent;
+}
+
+.agent-scroll::-webkit-scrollbar {
+  width: 6px;
+}
+.agent-scroll::-webkit-scrollbar-thumb {
+  background: rgba(26, 83, 52, 0.16);
+  border-radius: 999px;
+}
+
+.agent-status-pulse {
+  position: relative;
+}
+.agent-status-pulse::after {
+  content: '';
+  position: absolute;
+  inset: -3px;
+  border-radius: 999px;
+  border: 1.5px solid rgba(16, 185, 129, 0.45);
+  animation: agent-ring 1.8s ease-out infinite;
+}
+@keyframes agent-ring {
+  0% { transform: scale(0.85); opacity: 0.8; }
+  100% { transform: scale(1.55); opacity: 0; }
+}
+
+.genui-card {
+  border-radius: 8px;
+  border: 1px solid var(--agent-line);
+  background: linear-gradient(180deg, #FFFFFF 0%, #F4FAF6 100%);
+  box-shadow: 0 2px 10px rgba(26, 83, 52, 0.04);
+}
+
+.genui-chip {
+  border-radius: 999px;
+  border: 1px solid rgba(26, 83, 52, 0.1);
+  background: #fff;
+  transition: all 0.18s ease;
+}
+.genui-chip:hover {
+  border-color: rgba(23, 184, 95, 0.55);
+  background: #F1FBF5;
+  color: #133D27;
+  transform: translateY(-1px);
+}
+
+/* === Agente DPC — design inspirado em Lweji (glass + brand) === */
+.agent-shell {
+  position: relative;
+  isolation: isolate;
+  background: #F4FAF6;
+  color: #0C2A1B;
+}
+
+.agent-shell-bg {
+  pointer-events: none;
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  background:
+    radial-gradient(900px 420px at 12% -8%, rgba(23, 184, 95, 0.14), transparent 55%),
+    radial-gradient(700px 360px at 92% 0%, rgba(26, 83, 52, 0.07), transparent 50%),
+    radial-gradient(600px 400px at 50% 100%, rgba(23, 184, 95, 0.06), transparent 60%);
+}
+
+.agent-shell-bg::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  opacity: 0.28;
+  background-image:
+    linear-gradient(rgba(26, 83, 52, 0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(26, 83, 52, 0.03) 1px, transparent 1px);
+  background-size: 36px 36px;
+  mask-image: radial-gradient(ellipse 75% 65% at 50% 35%, black 15%, transparent 75%);
+}
+
+.agent-composer {
+  background: rgba(255, 255, 255, 0.55);
+  backdrop-filter: blur(24px) saturate(1.2);
+  -webkit-backdrop-filter: blur(24px) saturate(1.2);
+  border: 1px solid rgba(255, 255, 255, 0.7);
+  border-radius: 8px;
+  padding: 1rem 1.1rem;
+  box-shadow:
+    0 8px 32px rgba(26, 83, 52, 0.07),
+    inset 0 1px 1px rgba(255, 255, 255, 1);
+  transition: box-shadow 0.35s ease, border-color 0.35s ease;
+}
+
+.agent-composer:focus-within {
+  border-color: rgba(23, 184, 95, 0.45);
+  box-shadow:
+    0 0 0 3px rgba(23, 184, 95, 0.16),
+    0 14px 40px rgba(26, 83, 52, 0.1),
+    inset 0 1px 1px rgba(255, 255, 255, 1);
+}
+
+.agent-thinking-shimmer {
+  background: linear-gradient(
+    90deg,
+    rgba(26, 83, 52, 0.35) 0%,
+    #17B85F 45%,
+    #17B85F 55%,
+    rgba(26, 83, 52, 0.35) 100%
+  );
+  background-size: 220% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: agent-shimmer 2.2s ease-in-out infinite;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+}
+
+.agent-thinking-pulse {
+  width: 8px;
+  height: 8px;
+  border-radius: 9999px;
+  background-color: #17B85F;
+  animation: agent-pulse-soft 1.4s ease-in-out infinite;
+  box-shadow: 0 0 10px rgba(23, 184, 95, 0.45);
+  flex-shrink: 0;
+}
+
+@keyframes agent-shimmer {
+  0% { background-position: 100% 0; }
+  100% { background-position: -100% 0; }
+}
+
+@keyframes agent-pulse-soft {
+  0%, 100% { transform: scale(1); opacity: 0.7; }
+  50% { transform: scale(1.15); opacity: 1; }
+}
+
+.agent-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(23, 184, 95, 0.35) transparent;
+}
+.agent-scroll::-webkit-scrollbar { width: 6px; }
+.agent-scroll::-webkit-scrollbar-thumb {
+  background: rgba(23, 184, 95, 0.35);
+  border-radius: 3px;
+}
+
+/* ============================================================
+   Login — painel de marca dinâmico (mesh gradient + partículas)
+   ============================================================ */
+
+.login-brand-panel {
+  position: relative;
+  isolation: isolate;
+  background: linear-gradient(165deg, #0C2A1B 0%, #133D27 55%, #0C2A1B 100%);
+  overflow: hidden;
+}
+
+.login-brand-mesh {
+  pointer-events: none;
+  position: absolute;
+  inset: -12%;
+  z-index: 0;
+  background:
+    radial-gradient(38% 38% at 22% 22%, rgba(23, 184, 95, 0.32), transparent 60%),
+    radial-gradient(42% 42% at 85% 12%, rgba(203, 43, 43, 0.34), transparent 60%),
+    radial-gradient(46% 46% at 78% 88%, rgba(23, 184, 95, 0.16), transparent 65%),
+    radial-gradient(40% 40% at 8% 92%, rgba(33, 106, 65, 0.65), transparent 60%);
+  filter: blur(70px);
+}
+
+@keyframes login-mesh-drift {
+  0%   { transform: translate3d(0, 0, 0) scale(1) rotate(0deg); }
+  50%  { transform: translate3d(2%, -3%, 0) scale(1.08) rotate(4deg); }
+  100% { transform: translate3d(-3%, 2%, 0) scale(1.03) rotate(-3deg); }
+}
+
+.login-brand-grid {
+  pointer-events: none;
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  opacity: 0.45;
+  background-image:
+    linear-gradient(rgba(23, 184, 95, 0.10) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(23, 184, 95, 0.10) 1px, transparent 1px);
+  background-size: 46px 46px;
+  mask-image: radial-gradient(ellipse 85% 75% at 30% 40%, black 10%, transparent 72%);
+  -webkit-mask-image: radial-gradient(ellipse 85% 75% at 30% 40%, black 10%, transparent 72%);
+}
+
+@keyframes login-grid-pan {
+  0%   { background-position: 0 0, 0 0; }
+  100% { background-position: 230px 260px, 230px 260px; }
+}
+
+.login-brand-particles {
+  pointer-events: none;
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  opacity: 0.4;
+  background-image: radial-gradient(rgba(255, 255, 255, 0.6) 1px, transparent 1px);
+  background-size: 140px 140px;
+}
+
+@keyframes login-particles-drift {
+  0%   { background-position: 0 0; }
+  100% { background-position: -280px -340px; }
+}
+
+.login-brand-vignette {
+  pointer-events: none;
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  background: radial-gradient(120% 90% at 28% 50%, transparent 40%, rgba(12, 42, 27, 0.28) 100%);
+}
+
+/* O Chrome pinta o autocomplete com um rectângulo próprio, que parte os cantos do campo. */
+.login-input:-webkit-autofill,
+.login-input:-webkit-autofill:hover,
+.login-input:-webkit-autofill:focus {
+  -webkit-text-fill-color: #0C2A1B;
+  caret-color: #0C2A1B;
+  box-shadow: inset 0 0 0 1000px #fff;
+  transition: background-color 99999s ease-out;
+}
+
+.dark .login-input:-webkit-autofill,
+.dark .login-input:-webkit-autofill:hover,
+.dark .login-input:-webkit-autofill:focus {
+  -webkit-text-fill-color: #fff;
+  caret-color: #fff;
+  box-shadow: inset 0 0 0 1000px #1E293B;
+}
+
+/* ============================================================
+   Tema escuro — superfícies e texto.
+   Paleta neutra; o verde de marca (bg-navy-600/700/800) e o texto branco ficam.
+   ============================================================ */
+
+.dark body {
+  background-color: #0F172A;
+  color: #F8FAFC;
+}
+
+.dark .bg-white,
+.dark .bg-white\/95,
+.dark .bg-white\/92,
+.dark .bg-white\/80,
+.dark .bg-white\/78,
+.dark .bg-white\/70,
+.dark .bg-white\/60,
+.dark .bg-white\/55,
+.dark .bg-white\/50,
+.dark .hover\:bg-white:hover {
+  background-color: #1E293B;
+}
+
+.dark .bg-neutral-50,
+.dark .bg-neutral-100,
+.dark .bg-navy-50,
+.dark .bg-navy-25,
+.dark .bg-surface,
+.dark .bg-surface-secondary,
+.dark .hover\:bg-neutral-50:hover,
+.dark .hover\:bg-neutral-100:hover,
+.dark .hover\:bg-navy-50:hover,
+.dark .hover\:bg-navy-25:hover {
+  background-color: #0F172A;
+}
+
+/* Variantes translúcidas de navy-50 (ex.: dias fora do mês no calendário, cartões dentro de
+   formulários): o mesmo tom escuro do fundo, mantendo a opacidade de cada classe. */
+.dark .bg-navy-50\/40 { background-color: rgb(15 23 42 / 0.4); }
+.dark .bg-navy-50\/50 { background-color: rgb(15 23 42 / 0.5); }
+.dark .bg-navy-50\/60 { background-color: rgb(15 23 42 / 0.6); }
+.dark .bg-navy-50\/70 { background-color: rgb(15 23 42 / 0.7); }
+
+.dark .bg-neutral-150,
+.dark .bg-navy-100,
+.dark .bg-surface-tertiary {
+  background-color: #1E293B;
+}
+
+.dark .text-navy-900,
+.dark .text-navy-800,
+.dark .text-navy-700,
+.dark .text-neutral-900,
+.dark .text-neutral-800,
+.dark .text-neutral-700,
+.dark .hover\:text-navy-900:hover,
+.dark .hover\:text-navy-800:hover,
+.dark .hover\:text-navy-700:hover,
+.dark .hover\:text-neutral-900:hover {
+  color: #F8FAFC;
+}
+
+.dark .text-navy-600,
+.dark .text-navy-500,
+.dark .text-neutral-600,
+.dark .text-neutral-500,
+.dark .text-gold-800,
+.dark .text-gold-700,
+.dark .hover\:text-navy-600:hover,
+.dark .hover\:text-navy-500:hover {
+  color: #CBD5E1;
+}
+
+.dark .text-navy-400,
+.dark .text-neutral-400,
+.dark .text-muted-foreground {
+  color: #94A3B8;
+}
+
+.dark .text-navy-300,
+.dark .hover\:text-navy-500:hover {
+  color: #CBD5E1;
+}
+
+/* Títulos e resumos das publicações usam um preto fixo. Esta regra não depende
+   do variant `dark:` (em produção a ordem do CSS pode deixar o preto por cima
+   do branco e a lista desaparece sobre o cartão escuro). */
+.dark .text-\[\#0A0A0A\] {
+  color: #FFFFFF;
+}
+
+.dark .border-neutral-100,
+.dark .border-neutral-150,
+.dark .border-neutral-200,
+.dark .border-navy-50,
+.dark .border-neutral-300,
+.dark .border-navy-100,
+.dark .border-navy-200,
+.dark .border-white\/70,
+.dark .border-white\/60,
+.dark .divide-navy-50 > :not([hidden]) ~ :not([hidden]),
+.dark .divide-navy-100 > :not([hidden]) ~ :not([hidden]),
+.dark .divide-neutral-100 > :not([hidden]) ~ :not([hidden]),
+.dark .divide-neutral-200 > :not([hidden]) ~ :not([hidden]) {
+  border-color: #334155;
+}
+
+.dark .bg-error-50 { background-color: rgb(185 28 28 / 0.16); }
+.dark .bg-info-50 { background-color: rgb(29 78 216 / 0.16); }
+.dark .bg-warning-50 { background-color: rgb(180 83 9 / 0.16); }
+.dark .bg-success-50 { background-color: rgb(15 118 110 / 0.16); }
+/* Pastilhas de estado (bg-*-100): no escuro deixavam o ícone claro sobre fundo claro. */
+.dark .bg-error-100 { background-color: rgb(185 28 28 / 0.28); }
+.dark .bg-info-100 { background-color: rgb(29 78 216 / 0.32); }
+.dark .bg-warning-100 { background-color: rgb(180 83 9 / 0.32); }
+.dark .bg-success-100 { background-color: rgb(15 118 110 / 0.32); }
+.dark .bg-gold-50,
+.dark .hover\:bg-gold-50:hover { background-color: rgba(255, 255, 255, 0.08); }
+
+.dark .text-error-500,
+.dark .text-error-600,
+.dark .text-error-700 { color: #FECACA; }
+.dark .text-info-500,
+.dark .text-info-600,
+.dark .text-info-700 { color: #BFDBFE; }
+.dark .text-warning-500,
+.dark .text-warning-600,
+.dark .text-warning-700 { color: #FCD34D; }
+.dark .text-success-500,
+.dark .text-success-600,
+.dark .text-success-700 { color: #99F6E4; }
+
+.dark input::placeholder,
+.dark textarea::placeholder,
+.dark .placeholder\:text-navy-300::placeholder,
+.dark .placeholder\:text-neutral-400::placeholder {
+  color: #94A3B8;
+}
+
+.dark table thead th {
+  background-color: #0F172A;
+  color: #CBD5E1;
+  border-bottom-color: #334155;
+}
+
+.dark table tbody td {
+  color: #F8FAFC;
+  border-bottom-color: #334155;
+}
+
+.dark table tbody tr:nth-of-type(even) > td {
+  background-color: rgb(248 250 252 / 0.03);
+}
+
+.dark table tbody tr:hover > td {
+  background-color: var(--primary-tint-5);
+}
+
+.dark .agent-workspace,
+.dark .agent-shell {
+  background: #0F172A;
+  color: #F8FAFC;
+  --agent-bg: #0F172A;
+  --agent-panel: rgb(30 41 59 / 0.86);
+  --agent-panel-solid: #1E293B;
+  --agent-ink: #F8FAFC;
+  --agent-muted: #94A3B8;
+  --agent-assistant-bg: rgb(30 41 59 / 0.94);
+}
+
+.dark ::selection {
+  background: rgba(148, 163, 184, 0.35);
+  color: #FFFFFF;
+}
+
+.dark .avatar-iniciais {
+  background-color: #334155;
+  color: #F8FAFC;
+}
+
+.dark input:disabled,
+.dark textarea:disabled,
+.dark select:disabled {
+  color: #F8FAFC;
+  -webkit-text-fill-color: #F8FAFC;
+  opacity: 1;
+  background-color: #0F172A;
+  border-color: #334155;
+}
+
+/* ===== Conteúdo rico (editor Tiptap + publicações da Comunidade) ===== */
+.rich-text { color: var(--foreground); font-size: 1rem; line-height: 1.6; overflow-wrap: anywhere; }
+.rich-text > * + * { margin-top: 0.75em; }
+.rich-text h2 { font-family: var(--font-heading); font-size: 1.25rem; font-weight: 600; letter-spacing: -0.02em; line-height: 1.3; color: var(--foreground); margin-top: 1.1em; }
+.rich-text h3 { font-family: var(--font-heading); font-size: 1.0625rem; font-weight: 600; letter-spacing: -0.015em; line-height: 1.35; color: var(--foreground); margin-top: 1em; }
+.rich-text > :first-child { margin-top: 0; }
+.rich-text strong { font-weight: 600; color: var(--foreground); }
+.rich-text a { color: var(--primary); text-decoration: underline; text-underline-offset: 2px; }
+.rich-text ul { list-style: disc; padding-left: 1.5rem; }
+.rich-text ol { list-style: decimal; padding-left: 1.5rem; }
+.rich-text li + li { margin-top: 0.25em; }
+.rich-text li > p { margin: 0; }
+.rich-text blockquote { border-left: 3px solid var(--color-gold-400); padding-left: 1rem; color: var(--color-navy-500); font-style: italic; }
+.rich-text hr { border: 0; border-top: 1px solid var(--color-navy-100); margin: 1.25em 0; }
+.rich-text code { background: var(--color-neutral-100); border-radius: 4px; padding: 0.1em 0.35em; font-size: 0.875em; font-family: var(--font-mono); }
+.rich-text p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  color: var(--color-neutral-400);
+  float: left;
+  height: 0;
+  pointer-events: none;
+}
+.dark .rich-text { color: #F8FAFC; }
+.dark .rich-text h2, .dark .rich-text h3, .dark .rich-text strong { color: #F8FAFC; }
+.dark .rich-text a { color: #9DB8F5; }
+.dark .rich-text blockquote { border-left-color: #5B6680; color: #A8B1C2; }
+.dark .rich-text hr { border-top-color: rgba(255, 255, 255, 0.12); }
+.dark .rich-text code { background: rgba(255, 255, 255, 0.08); }
+
+/* ===== Tema claro — texto secundário com mais contraste =====
+   Só altera a cor do texto (classes text-*), não fundos nem bordas.
+   Na camada `utilities` e com :where() (mesma especificidade da classe),
+   para que hover:/focus: continuem a funcionar. O tema escuro tem as
+   suas próprias regras (.dark .text-*). */
+@layer utilities {
+  .text-navy-300:where(html:not(.dark) *) { color: #3E9A63; }
+  .text-navy-400:where(html:not(.dark) *) { color: #2E5E45; }
+  .text-navy-500:where(html:not(.dark) *) { color: #1F7444; }
+  .text-navy-600:where(html:not(.dark) *) { color: #175A35; }
+  .text-neutral-400:where(html:not(.dark) *) { color: #64748B; }
+  .text-neutral-500:where(html:not(.dark) *) { color: #475569; }
+  .text-neutral-600:where(html:not(.dark) *) { color: #334155; }
+}
+
+/* ===== Pumuki — bolha do assistente (Dify via API) =====
+   Ondas verdes à volta da bolha fechada, para chamar a atenção (duas ondas desfasadas). */
+.pumuki-bolha::before,
+.pumuki-bolha::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 999px;
+  border: 3px solid #3DD68C;
+  box-shadow: 0 0 12px rgba(61, 214, 140, 0.45);
+  pointer-events: none;
+  animation: pumuki-onda 2.4s cubic-bezier(0.2, 0.6, 0.35, 1) infinite;
+}
+.pumuki-bolha::after {
+  animation-delay: 1.2s;
+}
+@keyframes pumuki-onda {
+  0%   { transform: scale(1);   opacity: 1; }
+  70%  { opacity: 0.35; }
+  100% { transform: scale(2);   opacity: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .pumuki-bolha::before { animation: none; transform: scale(1.25); opacity: 0.5; }
+  .pumuki-bolha::after { display: none; }
+}
+
+/* ===== Loader global (AppLoader) =====
+   Ondas verdes a sair do emblema People Connect (três ondas desfasadas)
+   e um "respirar" suave do emblema. */
+.app-loader-onda {
+  position: absolute;
+  inset: 8%;
+  border-radius: 999px;
+  border: 2px solid #3DD68C;
+  box-shadow: 0 0 16px rgba(61, 214, 140, 0.45), inset 0 0 10px rgba(61, 214, 140, 0.25);
+  pointer-events: none;
+  opacity: 0;
+  animation: app-loader-onda 2.4s cubic-bezier(0.2, 0.6, 0.35, 1) infinite;
+}
+@keyframes app-loader-onda {
+  0%   { transform: scale(0.9); opacity: 0.9; }
+  70%  { opacity: 0.25; }
+  100% { transform: scale(2.1); opacity: 0; }
+}
+.app-loader-emblema {
+  filter: drop-shadow(0 0 10px rgba(61, 214, 140, 0.35));
+  animation: app-loader-respirar 2.4s ease-in-out infinite;
+}
+@keyframes app-loader-respirar {
+  0%, 100% { transform: scale(1);    filter: drop-shadow(0 0 8px rgba(61, 214, 140, 0.3)); }
+  50%      { transform: scale(1.04); filter: drop-shadow(0 0 18px rgba(61, 214, 140, 0.6)); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .app-loader-onda { animation: none; transform: scale(1.35); opacity: 0.4; }
+  .app-loader-onda + .app-loader-onda { display: none; }
+  .app-loader-emblema { animation: none; }
+}
+
+/* ===== Notícias da Comunidade — texto a preto =====
+   Conteúdo da publicação e editor de criação/edição. Mais específico do que
+   `.rich-text` / `.dark .rich-text` (o resto da aplicação mantém a sua cor). */
+.rich-text.rich-text-preto,
+.rich-text.rich-text-preto h2,
+.rich-text.rich-text-preto h3,
+.rich-text.rich-text-preto strong { color: #0A0A0A; }
+.dark .rich-text.rich-text-preto,
+.dark .rich-text.rich-text-preto p,
+.dark .rich-text.rich-text-preto li,
+.dark .rich-text.rich-text-preto h2,
+.dark .rich-text.rich-text-preto h3,
+.dark .rich-text.rich-text-preto strong,
+.dark .rich-text.rich-text-preto em { color: #FFFFFF; }

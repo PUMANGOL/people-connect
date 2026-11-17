@@ -1,0 +1,31 @@
+<svg viewBox="0 0 380 140" xmlns="http://www.w3.org/2000/svg">
+  <!-- Green section background -->
+  <polygon points="0,40 110,40 95,110 0,110" fill="#00704A"/>
+  
+  <!-- PUMANGOL text in white, italic -->
+  <text x="55" y="85" font-family="Arial, Helvetica, sans-serif" font-size="36" font-weight="bold" font-style="italic" fill="white" text-anchor="middle">PUMANGOL</text>
+  
+  <!-- Red section background -->
+  <polygon points="110,40 380,40 380,110 125,110" fill="#E31E24"/>
+  
+  <!-- Leaping gazelle/antelope in white on red section -->
+  <g transform="translate(280, 70)">
+    <!-- Body -->
+    <ellipse cx="0" cy="0" rx="14" ry="10" fill="white"/>
+    <!-- Neck -->
+    <rect x="8" y="-8" width="4" height="8" fill="white"/>
+    <!-- Head -->
+    <circle cx="14" cy="-12" r="6" fill="white"/>
+    <!-- Horns -->
+    <line x1="12" y1="-18" x2="8" y2="-28" stroke="white" stroke-width="2" stroke-linecap="round"/>
+    <line x1="16" y1="-18" x2="20" y2="-28" stroke="white" stroke-width="2" stroke-linecap="round"/>
+    <!-- Front legs in jumping position -->
+    <path d="M 10 10 Q 15 20 18 30" stroke="white" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+    <path d="M 6 10 Q 8 22 10 32" stroke="white" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+    <!-- Back legs -->
+    <path d="M -6 8 Q -10 15 -12 25" stroke="white" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+    <path d="M -10 8 Q -16 18 -20 28" stroke="white" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+    <!-- Tail -->
+    <path d="M -14 2 Q -20 -2 -22 -10" stroke="white" stroke-width="2" fill="none" stroke-linecap="round"/>
+  </g>
+</svg>

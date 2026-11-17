@@ -1,0 +1,68 @@
+services:
+  db:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_USER: pumangol
+      POSTGRES_PASSWORD: pumangol
+      POSTGRES_DB: pumangol
+    ports:
+      - "5433:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U pumangol -d pumangol"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  pumangol_auth:
+    image: postgres:16
+    container_name: pumangol_auth
+    environment:
+      POSTGRES_USER: pumangol
+      POSTGRES_PASSWORD: pumangol
+      POSTGRES_DB: pumangol_auth
+    ports:
+      - "5434:5432"
+    volumes:
+      - pumangol_auth_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U pumangol -d pumangol_auth"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  minio:
+    image: minio/minio:latest
+    container_name: pumangol_minio
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: pumangol
+      MINIO_ROOT_PASSWORD: pumangol-minio
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - minio_data:/data
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  minio_init:
+    image: minio/mc:latest
+    depends_on:
+      minio:
+        condition: service_healthy
+    entrypoint: >
+      /bin/sh -c "
+      mc alias set local http://minio:9000 pumangol pumangol-minio &&
+      mc mb --ignore-existing local/pumangol-ficheiros &&
+      mc anonymous set none local/pumangol-ficheiros
+      "
+
+volumes:
+  pgdata:
+  pumangol_auth_data:
+  minio_data:

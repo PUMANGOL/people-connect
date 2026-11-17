@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 80">
+  <!-- Paralelogramo verde (esquerda) -->
+  <polygon points="0,80 14,0 225,0 211,80" fill="#009845"/>
+  <!-- Separador branco -->
+  <polygon points="211,80 225,0 232,0 218,80" fill="#FFFFFF"/>
+  <!-- Paralelogramo vermelho (direita) -->
+  <polygon points="218,80 232,0 360,0 346,80" fill="#E30613"/>
+  <!-- PUMANGOL -->
+  <text x="112" y="53" font-family="Arial Black, 'Helvetica Neue', Arial, sans-serif" font-size="33" font-weight="900" font-style="italic" fill="#FFFFFF" text-anchor="middle" letter-spacing="0.5">PUMANGOL</text>
+  <!-- Puma a saltar (silhueta branca) -->
+  <g transform="translate(240,18) scale(1.05)">
+    <path fill="#FFFFFF" d="M10 18 C16 14 24 16 30 20 C34 14 44 10 56 10 C64 10 72 12 78 14 L90 12 C93 12 93 16 90 17 L82 19 C80 22 76 24 72 24 L84 32 L80 34 L68 26 L64 27 L70 36 L66 38 L58 27 C52 28 46 28 42 26 L32 36 L28 34 L36 24 L30 24 L22 32 L18 30 L28 21 C22 22 14 22 10 18 Z"/>
+  </g>
+</svg>
