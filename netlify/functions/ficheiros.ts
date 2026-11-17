@@ -35,9 +35,9 @@ export default async (req: Request): Promise<Response> => {
       if (!FINALIDADES.includes(finalidade)) return errorResponse('Finalidade inválida', 400);
       validarFicheiro(finalidade, tipo, tamanho);
 
-      if (finalidade === 'foto' || finalidade === 'capa') {
-        const key = novaChave(`perfis/${user.id}/${finalidade}`, tipo);
-        return jsonResponse({ data: await prepararEnvio(finalidade, key, tipo) });
+      if (finalidade === 'foto') {
+        const key = novaChave(`perfis/${user.id}/foto`, tipo);
+        return jsonResponse({ data: await prepararEnvio('foto', key, tipo) });
       }
 
       const progressoId = typeof body.progressoId === 'string' ? body.progressoId : '';
