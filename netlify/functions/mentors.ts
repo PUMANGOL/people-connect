@@ -4,6 +4,7 @@ import { sql, jsonResponse, errorResponse, handleCors, publicErrorMessage } from
 import { requireAuth, authErrorResponse, AuthError } from './_shared/auth';
 import { EMAIL_DOMINIO } from '@/lib/constants';
 import { garantirAcessoMentor } from './_shared/mentor-access';
+import { definirMembroGrupo } from './_shared/controlo-acesso';
 import { emCache, invalidarMentores, TAG_MENTORES } from './_shared/cache-leitura';
 
 /**
@@ -53,7 +54,18 @@ export default async (req: Request): Promise<Response> => {
                (u.id IS NOT NULL) AS tem_conta,
                (u.password_hash IS NOT NULL) AS tem_password,
                (SELECT COUNT(*) FROM mentor_assignments ma
-                WHERE ma.mentor_id = m.id AND ma.activo = true) AS mentorados_activos
+                WHERE ma.mentor_id = m.id AND ma.activo = true) AS mentorados_activos,
+               (
+                 EXISTS (
+                   SELECT 1 FROM grupo_utilizador gu
+                     JOIN grupo g ON g.id = gu.grupo_id
+                    WHERE gu.utilizador_id = m.utilizador_id AND g.chave = 'mentores'
+                 )
+                 OR EXISTS (
+                   SELECT 1 FROM mentor_assignments ma
+                    WHERE ma.mentor_id = m.id AND ma.activo = true
+                 )
+               ) AS e_mentor
         FROM mentors m
         LEFT JOIN utilizadores u ON u.id = m.utilizador_id
         ORDER BY nome
@@ -132,6 +144,10 @@ export default async (req: Request): Promise<Response> => {
         INSERT INTO onboarding_audit (utilizador_id, utilizador_nome, utilizador_role, operacao, entidade, entidade_id, valor_novo)
         VALUES (${user.id}, ${user.email}, ${user.role}, 'criar', 'mentor', ${mentor[0].id}, ${JSON.stringify({ nome, email, categorias: cats })}::text::jsonb)
       `;
+
+      await definirMembroGrupo(utilizadorId, 'colaboradores', true);
+      await definirMembroGrupo(utilizadorId, 'mentorados', false);
+      if (body.como_mentor === true) await definirMembroGrupo(utilizadorId, 'mentores', true);
 
       invalidarMentores();
       return jsonResponse({

@@ -30,6 +30,8 @@ export function Layout() {
         if (
           atual.role !== user.role || atual.is_mentor !== user.is_mentor
           || atual.nome !== user.nome || (atual.foto_url ?? null) !== (user.foto_url ?? null)
+          || (atual.funcao ?? null) !== (user.funcao ?? null)
+          || (atual.departamento ?? null) !== (user.departamento ?? null)
           || atual.is_dev !== user.is_dev
           || JSON.stringify(atual.paginas ?? []) !== JSON.stringify(user.paginas ?? [])
         ) {

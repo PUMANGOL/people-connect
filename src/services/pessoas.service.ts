@@ -4,6 +4,8 @@ export interface PessoaResumo {
   id: string;
   nome: string;
   perfil: string;
+  /** Está na lista de mentores (grupo ou atribuição activa). O perfil `mentor` é só colaborador. */
+  e_mentor: boolean;
   funcao: string | null;
   direccao: string | null;
   foto_url: string | null;
@@ -40,6 +42,7 @@ export interface PessoaPerfil {
   nome: string;
   email: string;
   perfil: string;
+  e_mentor: boolean;
   activo: boolean;
   funcao: string | null;
   direccao: string | null;
@@ -75,3 +78,10 @@ export const PERFIL_LABEL: Record<string, string> = {
   mentor: 'Mentor',
   novo_colaborador: 'Colaborador',
 };
+
+/** «Mentor» só para quem está na lista. O perfil interno `mentor` é colaborador. */
+export function rotuloPessoa(perfil: string, eMentor = false): string {
+  if (eMentor) return 'Mentor';
+  if (perfil === 'rh_admin') return PERFIL_LABEL.rh_admin;
+  return 'Colaborador';
+}

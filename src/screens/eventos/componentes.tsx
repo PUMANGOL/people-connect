@@ -189,7 +189,11 @@ interface AccoesEvento {
   aGuardarPresenca: boolean;
 }
 
-export function EventoDestaque({ evento, onPresenca, aGuardarPresenca, onAbrir }: AccoesEvento & { evento: Evento; onAbrir: () => void }) {
+export function EventoDestaque({ evento, onPresenca, aGuardarPresenca, onAbrir, navegacao }: AccoesEvento & {
+  evento: Evento;
+  onAbrir: () => void;
+  navegacao?: { indice: number; total: number; onAnterior: () => void; onSeguinte: () => void };
+}) {
   const agora = useAgora();
   const inicio = new Date(evento.inicio);
   const rotuloDia = mesmoDia(inicio, agora) ? 'Hoje' : mesmoDia(inicio, maisDias(agora, 1)) ? 'Amanhã' : DIAS_CURTOS[inicio.getDay()];
@@ -197,7 +201,30 @@ export function EventoDestaque({ evento, onPresenca, aGuardarPresenca, onAbrir }
   return (
     <article className="relative overflow-hidden rounded-2xl bg-[#12343F] p-5 text-white shadow-card sm:p-6">
       <div aria-hidden="true" className="absolute -right-16 -top-20 h-64 w-64 rounded-full bg-[#1B4A4C]/70" />
-      <div className="relative flex flex-col gap-5 sm:flex-row">
+      {navegacao && navegacao.total > 1 && (
+        <div className="relative mb-4 flex items-center justify-end gap-2">
+          <button
+            type="button"
+            onClick={navegacao.onAnterior}
+            aria-label="Evento anterior"
+            className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-white/25 text-white transition-colors hover:bg-white/10"
+          >
+            <ChevronLeft className="h-4 w-4" />
+          </button>
+          <span className="min-w-12 text-center text-xs font-semibold tabular-nums text-white/80">
+            {navegacao.indice + 1} / {navegacao.total}
+          </span>
+          <button
+            type="button"
+            onClick={navegacao.onSeguinte}
+            aria-label="Evento seguinte"
+            className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-white/25 text-white transition-colors hover:bg-white/10"
+          >
+            <ChevronRight className="h-4 w-4" />
+          </button>
+        </div>
+      )}
+      <div key={evento.id} className="relative flex flex-col gap-5 animate-in fade-in duration-300 sm:flex-row">
         {/* Bloco da data */}
         <div className="flex shrink-0 flex-row items-center justify-center gap-3 rounded-xl bg-[#3DD68C] px-4 py-3 text-[#0B2A1C] sm:w-[88px] sm:flex-col sm:gap-0 sm:py-6">
           <span className="text-[11px] font-bold uppercase tracking-widest">{rotuloDia}</span>

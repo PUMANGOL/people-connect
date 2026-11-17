@@ -176,6 +176,20 @@
       "when": 1793900000000,
       "tag": "0024_mentores_por_atribuicao",
       "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1794000000000,
+      "tag": "0025_eventos_novembro_papeis",
+      "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "7",
+      "when": 1794100000000,
+      "tag": "0026_comissao_executiva",
+      "breakpoints": true
     }
   ]
 }

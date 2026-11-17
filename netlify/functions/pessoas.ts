@@ -30,7 +30,19 @@ export default async (req: Request): Promise<Response> => {
       if (q.length < 2) return jsonResponse({ data: [] });
       const padrao = `%${q.replace(/[\\%_]/g, (c) => `\\${c}`)}%`;
       const rows = await sql`
-        SELECT p.id, p.nome, p.perfil, p.funcao, p.direccao, p.foto_key
+        SELECT p.id, p.nome, p.perfil, p.funcao, p.direccao, p.foto_key,
+               (
+                 EXISTS (
+                   SELECT 1 FROM grupo_utilizador gu
+                     JOIN grupo g ON g.id = gu.grupo_id
+                    WHERE gu.utilizador_id = p.id AND g.chave = 'mentores'
+                 )
+                 OR EXISTS (
+                   SELECT 1 FROM mentors m
+                     JOIN mentor_assignments ma ON ma.mentor_id = m.id AND ma.activo = true
+                    WHERE m.utilizador_id = p.id
+                 )
+               ) AS e_mentor
           FROM (${pessoasOrg()}) p
          WHERE p.estado = 'activo'
            AND (p.nome ILIKE ${padrao} OR p.email ILIKE ${padrao}
@@ -39,7 +51,11 @@ export default async (req: Request): Promise<Response> => {
          LIMIT 8
       `;
       return jsonResponse({
-        data: rows.map(({ foto_key, ...r }) => ({ ...r, foto_url: urlFicheiro(foto_key as string | null) })),
+        data: rows.map(({ foto_key, e_mentor, ...r }) => ({
+          ...r,
+          e_mentor: e_mentor === true || e_mentor === 't' || e_mentor === 'true',
+          foto_url: urlFicheiro(foto_key as string | null),
+        })),
       });
     }
 
@@ -49,6 +65,17 @@ export default async (req: Request): Promise<Response> => {
       SELECT u.id, u.nome, u.email, u.perfil::text AS perfil, u.estado, u.created_at,
              c.categoria AS colab_categoria, c.data_admissao,
              m.data_inicio_contrato, m.bio,
+             (
+               EXISTS (
+                 SELECT 1 FROM grupo_utilizador gu
+                   JOIN grupo g ON g.id = gu.grupo_id
+                  WHERE gu.utilizador_id = u.id AND g.chave = 'mentores'
+               )
+               OR EXISTS (
+                 SELECT 1 FROM mentor_assignments ma
+                  WHERE ma.mentor_id = m.id AND ma.activo = true
+               )
+             ) AS e_mentor,
              pu.foto_key, pu.capa_key, pu.bio AS perfil_bio, pu.localizacao, pu.extensao,
              pu.disponibilidade, pu.posso_ajudar, pu.interesses
         FROM utilizadores u
@@ -91,6 +118,7 @@ export default async (req: Request): Promise<Response> => {
         nome: p.nome,
         email: p.email,
         perfil: p.perfil,
+        e_mentor: p.e_mentor === true || p.e_mentor === 't' || p.e_mentor === 'true',
         activo: p.estado === 'activo',
         funcao: estrutura.cargo,
         direccao: estrutura.direccao,

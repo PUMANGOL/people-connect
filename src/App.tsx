@@ -1,7 +1,7 @@
 'use client';
 
 import { lazy, Suspense } from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useParams } from 'react-router-dom';
 // Side-effect: regista o token provider JWT no cliente HTTP
 import './services/auth.service';
 import { Layout } from './components/Layout';
@@ -15,6 +15,7 @@ const Login = lazy(() => import('./screens/Login'));
 const DefinirPassword = lazy(() => import('./screens/DefinirPassword'));
 const RecuperarPassword = lazy(() => import('./screens/RecuperarPassword'));
 const Dashboard = lazy(() => import('./screens/Dashboard'));
+const InicioPage = lazy(() => import('./screens/inicio/InicioPage'));
 const ComunidadePage = lazy(() => import('./screens/comunidade/ComunidadePage'));
 const PublicacaoPage = lazy(() => import('./screens/comunidade/PublicacaoPage'));
 const EventosPage = lazy(() => import('./screens/eventos/EventosPage'));
@@ -91,6 +92,11 @@ function MentorRoute() {
   );
 }
 
+function RedirigirPublicacao() {
+  const { id } = useParams();
+  return <Navigate to={`/noticias/publicacao/${id ?? ''}`} replace />;
+}
+
 export default function App() {
   return (
     <ToastProvider>
@@ -100,9 +106,20 @@ export default function App() {
         <MudancaDePagina />
         <Suspense fallback={<AppLoader />}>
           <Routes>
-            {/* Página inicial — Comunidade (todos os perfis) */}
             <Route
               path="/inicio"
+              element={
+                <RoleGuard roles={['rh_admin', 'mentor', 'novo_colaborador']}>
+                  <Layout />
+                </RoleGuard>
+              }
+            >
+              <Route index element={<WelcomeGuard><InicioPage /></WelcomeGuard>} />
+              <Route path="publicacao/:id" element={<RedirigirPublicacao />} />
+            </Route>
+
+            <Route
+              path="/noticias"
               element={
                 <RoleGuard roles={['rh_admin', 'mentor', 'novo_colaborador']}>
                   <Layout />
@@ -172,7 +189,7 @@ export default function App() {
               <Route index element={<AcessosPage />} />
             </Route>
 
-            {/* O meu perfil (foto, capa, contactos e interesses) — todos os perfis */}
+            {/* O meu perfil (foto, contactos e interesses) — todos os perfis */}
             <Route
               path="/meu-perfil"
               element={
@@ -221,7 +238,8 @@ export default function App() {
               <Route path="utilizadores" element={<UtilizadoresPage />} />
 
               {/* Admin — Mentoria (Fase 4) */}
-              <Route path="mentores" element={<MentoresPage />} />
+              <Route path="colaboradores" element={<MentoresPage modo="colaboradores" />} />
+              <Route path="mentores" element={<MentoresPage modo="mentores" />} />
               <Route path="avaliacoes" element={<CentroAvaliacoesPage />} />
               <Route path="comparacao-360" element={<Comparacao360Page />} />
 

@@ -26,8 +26,7 @@ export default function EventosPage() {
   const [cursor, setCursor] = useState(() => new Date());
   const [eventos, setEventos] = useState<Evento[]>([]);
   const [carregando, setCarregando] = useState(true);
-  const [destaque, setDestaque] = useState<Evento | null>(null);
-  const [carregandoDestaque, setCarregandoDestaque] = useState(true);
+  const [cartao, setCartao] = useState(0);
   const [meus, setMeus] = useState<Evento[]>([]);
 
   const [categoria, setCategoria] = useState<CategoriaEvento | null>(null);
@@ -55,13 +54,7 @@ export default function EventosPage() {
   }, [chaveIntervalo]);
 
   const carregarLaterais = useCallback(async () => {
-    const [d, m] = await Promise.all([
-      eventosService.destaque().catch(() => null),
-      eventosService.meus().catch(() => [] as Evento[]),
-    ]);
-    setDestaque(d);
-    setMeus(m);
-    setCarregandoDestaque(false);
+    setMeus(await eventosService.meus().catch(() => [] as Evento[]));
   }, []);
 
   useEffect(() => { carregarCalendario(); }, [carregarCalendario]);
@@ -77,10 +70,34 @@ export default function EventosPage() {
     [eventos, categoria, zona],
   );
 
+  /** O mesmo cartão percorre os eventos visíveis: o fixado primeiro, depois por data. */
+  const cartoes = useMemo(() => {
+    const lista = [...filtrados].sort((a, b) => +new Date(a.inicio) - +new Date(b.inicio));
+    const fixo = lista.findIndex((e) => e.destaque);
+    if (fixo > 0) lista.unshift(lista.splice(fixo, 1)[0]);
+    return lista;
+  }, [filtrados]);
+  const chaveCartoes = cartoes.map((e) => e.id).join(',');
+
+  useEffect(() => {
+    if (!cartoes.length) {
+      setCartao(0);
+      return;
+    }
+    if (cartoes.some((e) => e.destaque)) {
+      setCartao(0);
+      return;
+    }
+    const agora = Date.now();
+    const proximo = cartoes.findIndex((e) => new Date(e.fim ?? e.inicio).getTime() >= agora);
+    setCartao(proximo === -1 ? 0 : proximo);
+  }, [chaveCartoes]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const eventoCartao = cartoes[Math.min(cartao, Math.max(cartoes.length - 1, 0))] ?? null;
+
   /** Substitui o evento actualizado em todas as listas da página. */
   function aplicar(actualizado: Evento) {
     setEventos((prev) => prev.map((e) => (e.id === actualizado.id ? actualizado : e)));
-    setDestaque((d) => (d?.id === actualizado.id ? actualizado : d));
     setAberto((a) => (a?.id === actualizado.id ? actualizado : a));
   }
 
@@ -150,14 +167,20 @@ export default function EventosPage() {
 
       <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_300px]">
         <div className="min-w-0 space-y-5">
-          {carregandoDestaque ? (
+          {carregando && cartoes.length === 0 ? (
             <SkeletonCard />
-          ) : destaque ? (
+          ) : eventoCartao ? (
             <EventoDestaque
-              evento={destaque}
-              onAbrir={() => setAberto(destaque)}
+              evento={eventoCartao}
+              onAbrir={() => setAberto(eventoCartao)}
               onPresenca={alternarPresenca}
-              aGuardarPresenca={aGuardarPresenca === destaque.id}
+              aGuardarPresenca={aGuardarPresenca === eventoCartao.id}
+              navegacao={{
+                indice: Math.min(cartao, cartoes.length - 1),
+                total: cartoes.length,
+                onAnterior: () => setCartao((i) => (i - 1 + cartoes.length) % cartoes.length),
+                onSeguinte: () => setCartao((i) => (i + 1) % cartoes.length),
+              }}
             />
           ) : (
             <div className="rounded-2xl border border-dashed border-navy-200 bg-white p-8 text-center">

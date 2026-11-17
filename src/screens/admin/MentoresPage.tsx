@@ -21,7 +21,17 @@ import type { Mentor } from '@/lib/types';
 import { Checkbox } from '@/components/ui/checkbox';
 
 
-type MentorRow = Mentor & { nome: string; email: string; departamento: string };
+type MentorRow = Mentor & {
+  nome: string;
+  email: string;
+  departamento: string;
+  mentorados_activos?: number;
+  e_mentor?: boolean | string;
+};
+
+function eMentor(pessoa: MentorRow): boolean {
+  return pessoa.e_mentor === true || pessoa.e_mentor === 't' || pessoa.e_mentor === 'true' || Number(pessoa.mentorados_activos) > 0;
+}
 
 function categoriasDoMentor(mentor: MentorRow): string[] {
   const valor = mentor.categorias_suportadas as unknown;
@@ -37,7 +47,8 @@ function categoriasDoMentor(mentor: MentorRow): string[] {
   return [];
 }
 
-export default function MentoresPage() {
+export default function MentoresPage({ modo = 'mentores' }: { modo?: 'mentores' | 'colaboradores' }) {
+  const soMentores = modo === 'mentores';
   const { funcaoOptions, direccaoOptions, categoriaOptions } = useCatalogo();
   const [rows, setRows] = useState<MentorRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -57,7 +68,7 @@ export default function MentoresPage() {
     setLoading(true);
     try {
       const data = await mentorsService.list();
-      setRows(data);
+      setRows(soMentores ? data.filter(eMentor) : data);
     } catch {
       setRows([]);
     } finally {
@@ -65,7 +76,7 @@ export default function MentoresPage() {
     }
   }
 
-  useEffect(() => { carregar(); }, []);
+  useEffect(() => { carregar(); }, [soMentores]);
 
   async function handleRemove() {
     if (!removeMentor) return;
@@ -133,9 +144,9 @@ export default function MentoresPage() {
         className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between"
       >
         <div>
-          <h1 className="text-2xl font-bold text-navy-800">Colaboradores</h1>
+          <h1 className="text-2xl font-bold text-navy-800">{soMentores ? 'Mentores' : 'Colaboradores'}</h1>
           <p className="mt-1 text-sm text-navy-500">
-            {rows.length} colaborador(es) · gestão de contas com perfil <em>mentor</em>.
+            {rows.length} {soMentores ? 'mentor(es) com mentorados ou no grupo Mentores.' : 'colaborador(es) no directório.'}
           </p>
         </div>
         <Button
@@ -143,7 +154,7 @@ export default function MentoresPage() {
           leftIcon={<Plus className="h-4 w-4" />}
           onClick={() => setShowCreate(true)}
         >
-          Novo mentor
+          {soMentores ? 'Novo mentor' : 'Novo colaborador'}
         </Button>
       </motion.div>
 
@@ -168,15 +179,17 @@ export default function MentoresPage() {
         ) : filtrados.length === 0 ? (
           <EmptyState
             icon={<GraduationCap className="h-8 w-8" />}
-            title={rows.length === 0 ? 'Ainda sem mentores' : 'Sem resultados'}
+            title={rows.length === 0 ? (soMentores ? 'Ainda sem mentores' : 'Ainda sem colaboradores') : 'Sem resultados'}
             description={
               rows.length === 0
-                ? 'Cria o primeiro mentor. A conta de login é gerada automaticamente.'
-                : 'Ajusta a pesquisa para encontrares o mentor.'
+                ? soMentores
+                  ? 'Ainda não há mentores com mentorados. Cria um mentor ou passa um colaborador a mentor em Utilizadores.'
+                  : 'Cria o primeiro colaborador. A conta de login é gerada automaticamente.'
+                : 'Ajusta a pesquisa.'
             }
             action={
               rows.length === 0
-                ? { label: 'Novo mentor', onClick: () => setShowCreate(true) }
+                ? { label: soMentores ? 'Novo mentor' : 'Novo colaborador', onClick: () => setShowCreate(true) }
                 : undefined
             }
           />
@@ -260,6 +273,7 @@ export default function MentoresPage() {
 
       {showCreate && (
         <MentorFormModal
+          comoMentor={soMentores}
           onClose={() => setShowCreate(false)}
           onCreated={(cred) => {
             setShowCreate(false);
@@ -271,6 +285,7 @@ export default function MentoresPage() {
 
       {editMentor && (
         <MentorFormModal
+          comoMentor={soMentores}
           mentor={editMentor}
           onClose={() => setEditMentor(null)}
           onCreated={() => {
@@ -309,10 +324,12 @@ export default function MentoresPage() {
 
 function MentorFormModal({
   mentor,
+  comoMentor = false,
   onClose,
   onCreated,
 }: {
   mentor?: MentorRow;
+  comoMentor?: boolean;
   onClose: () => void;
   onCreated: (cred: { email: string; password: string } | null) => void;
 }) {
@@ -348,6 +365,7 @@ function MentorFormModal({
           email: email.trim() || undefined,
           departamento,
           bio: bio || undefined,
+          como_mentor: comoMentor,
         });
         toast.success('Mentor criado');
         onCreated(credenciais);
@@ -364,7 +382,7 @@ function MentorFormModal({
       <div className="mb-4 flex items-center justify-between">
         <div>
           <h2 className="text-lg font-semibold text-navy-800">
-            {isEdit ? 'Editar mentor' : 'Novo mentor'}
+            {isEdit ? (comoMentor ? 'Editar mentor' : 'Editar colaborador') : (comoMentor ? 'Novo mentor' : 'Novo colaborador')}
           </h2>
           <p className="text-sm text-navy-500">
             {isEdit
@@ -430,7 +448,7 @@ function MentorFormModal({
           Cancelar
         </Button>
         <Button variant="primary" onClick={submit} loading={saving}>
-          {isEdit ? 'Guardar' : 'Criar mentor'}
+          {isEdit ? 'Guardar' : (comoMentor ? 'Criar mentor' : 'Criar colaborador')}
         </Button>
       </div>
     </Dialog>

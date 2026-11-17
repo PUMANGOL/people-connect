@@ -7,7 +7,7 @@ import {
   Route,
   HelpCircle, Video, TrendingUp, FolderOpen, ClipboardCheck, UploadCloud,
   ClipboardEdit, Bell, Activity, MessageSquare, LineChart,
-  BookOpen, GraduationCap, Tags, Home, ChevronDown, CalendarDays, IdCard, Award, UserRound, KeyRound,
+  BookOpen, GraduationCap, Tags, Home, ChevronDown, CalendarDays, IdCard, Award, UserRound, KeyRound, Newspaper,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { PAGINAS, type PaginaVisivel } from '@/lib/paginas';
@@ -32,6 +32,7 @@ const ADMIN_NAV: NavGroup[] = [
     label: 'Geral',
     items: [
       { name: 'Início', href: '/inicio', icon: Home },
+      { name: 'Notícias', href: '/noticias', icon: Newspaper },
       { name: 'Eventos', href: '/eventos', icon: CalendarDays },
       { name: 'Reconhecimento', href: '/reconhecimento', icon: Award },
       { name: 'O meu perfil', href: '/meu-perfil', icon: UserRound },
@@ -55,6 +56,7 @@ const ADMIN_NAV: NavGroup[] = [
     label: 'Onboarding',
     items: [
       { name: 'Novos Colaboradores', href: '/onboarding', icon: UserCheck },
+      { name: 'Colaboradores', href: '/colaboradores', icon: Users },
       { name: 'Fichas do Colaborador', href: '/onboarding/fichas', icon: IdCard },
       { name: 'Trilhos', href: '/onboarding/trilhos', icon: ClipboardList },
       { name: 'Funções, direcções e categorias', href: '/onboarding/catalogos', icon: Tags },
@@ -68,7 +70,7 @@ const ADMIN_NAV: NavGroup[] = [
   {
     label: 'Mentoria',
     items: [
-      { name: 'Colaboradores', href: '/mentores', icon: GraduationCap },
+      { name: 'Mentores', href: '/mentores', icon: GraduationCap },
       { name: 'Centro de Avaliações', href: '/avaliacoes', icon: ClipboardEdit },
       { name: 'Comparação 360°', href: '/comparacao-360', icon: LineChart },
     ],
@@ -86,6 +88,7 @@ const MENTOR_NAV: NavGroup[] = [
     label: 'Geral',
     items: [
       { name: 'Início', href: '/inicio', icon: Home },
+      { name: 'Notícias', href: '/noticias', icon: Newspaper },
       { name: 'Eventos', href: '/eventos', icon: CalendarDays },
       { name: 'Reconhecimento', href: '/reconhecimento', icon: Award },
       { name: 'O meu perfil', href: '/meu-perfil', icon: UserRound },
@@ -118,6 +121,7 @@ const COLABORADOR_NAV: NavGroup[] = [
     label: 'Geral',
     items: [
       { name: 'Início', href: '/inicio', icon: Home },
+      { name: 'Notícias', href: '/noticias', icon: Newspaper },
       { name: 'Eventos', href: '/eventos', icon: CalendarDays },
       { name: 'Reconhecimento', href: '/reconhecimento', icon: Award },
       { name: 'O meu perfil', href: '/meu-perfil', icon: UserRound },

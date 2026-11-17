@@ -34,7 +34,7 @@ export default function ComunidadePage() {
   const [confirmar, setConfirmar] = useState<ComunidadePost | null>(null);
   const [removendo, setRemovendo] = useState(false);
 
-  const abrir = (post: ComunidadePost) => navigate(`/inicio/publicacao/${post.id}`);
+  const abrir = (post: ComunidadePost) => navigate(`/noticias/publicacao/${post.id}`);
 
   async function carregar() {
     const pedido = ++pedidoActual.current;
@@ -58,7 +58,7 @@ export default function ComunidadePage() {
   useEffect(() => {
     // Vindo de uma notificação (?post=<id>): abre directamente a página da publicação.
     if (postAlvo) {
-      navigate(`/inicio/publicacao/${postAlvo}`, { replace: true });
+      navigate(`/noticias/publicacao/${postAlvo}`, { replace: true });
       return;
     }
     carregar();

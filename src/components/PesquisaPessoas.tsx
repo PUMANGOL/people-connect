@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Search, Loader2 } from 'lucide-react';
 import { Avatar } from '@/src/components/ui/badge';
 import { cn } from '@/lib/utils';
-import { pessoasService, PERFIL_LABEL, type PessoaResumo } from '@/src/services/pessoas.service';
+import { pessoasService, rotuloPessoa, type PessoaResumo } from '@/src/services/pessoas.service';
 
 const DEBOUNCE_MS = 250;
 
@@ -123,7 +123,7 @@ export function PesquisaPessoas({ className }: { className?: string }) {
                   <span className="min-w-0 flex-1">
                     <span className="block truncate text-sm font-semibold text-neutral-900">{p.nome}</span>
                     <span className="block truncate text-xs text-neutral-500">
-                      {[PERFIL_LABEL[p.perfil] ?? p.perfil, p.funcao, p.direccao].filter(Boolean).join(' · ')}
+                      {[rotuloPessoa(p.perfil, p.e_mentor), p.funcao, p.direccao].filter(Boolean).join(' · ')}
                     </span>
                   </span>
                 </button>

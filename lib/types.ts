@@ -421,6 +421,8 @@ export interface AuthUser {
   nome: string;
   email: string;
   role: UserRole;
+  /** Função na empresa (cargo). O canto da conta mostra isto, não o papel de mentor. */
+  funcao?: string | null;
   departamento?: string;
   processo_id?: string;
   /** Tem perfil de mentor activo (pode acontecer também com rh_admin). */

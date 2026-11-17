@@ -13,7 +13,7 @@ import { NoticiaLeitura, PostForm } from './noticias';
 
 type Confirmacao = { tipo: 'post' } | { tipo: 'comentario'; comentario: ComunidadeComentario };
 
-/** Página de leitura de uma publicação da Comunidade (/inicio/publicacao/:id). */
+/** Página de leitura de uma publicação (/noticias/publicacao/:id). */
 export default function PublicacaoPage() {
   const { id = '' } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -42,7 +42,7 @@ export default function PublicacaoPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
-  const voltar = () => navigate('/inicio');
+  const voltar = () => navigate('/noticias');
 
   async function gostar() {
     if (!post) return;

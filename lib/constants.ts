@@ -4,13 +4,16 @@ export const APP_NAME_TITLE = 'Pumangol People Connect';
 export const APP_SLOGAN = 'Conectando pessoas, Cultura, Saúde e Desenvolvimento';
 
 // Home por perfil — usar sempre esta função em vez de hardcodar '/'.
-// Todos os perfis aterram na Comunidade (página inicial), comum a todos.
+// Todos os perfis aterram na página de boas-vindas. As publicações ficam em Notícias.
 export function homeForRole(_role?: string | null): string {
   return ROUTES.HOME;
 }
 
 /** Domínio dos emails gerados automaticamente a partir do nome. */
 export const EMAIL_DOMINIO = 'pumangol.co.ao';
+
+/** Capa igual em todos os perfis. Não há upload de capa. */
+export const CAPA_PERFIL = '/capa-perfil.jpg';
 
 // Routes
 export const ROUTES = {

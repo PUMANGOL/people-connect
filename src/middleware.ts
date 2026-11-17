@@ -1,3 +1,4 @@
+import { getSessionCookie } from 'better-auth/cookies';
 import { NextResponse, type NextRequest } from 'next/server';
 
 const PUBLIC_PAGES = [
@@ -29,33 +30,39 @@ function isPublicApi(pathname: string): boolean {
 }
 
 /**
- * Proxy de sessão: antes de entregar a página ou a API, pergunta ao
- * better-auth se o cookie ainda corresponde a uma sessão válida.
+ * Em desenvolvimento o middleware não pode fazer fetch ao próprio Next:
+ * a rota /api/auth ainda não está compilada, o pedido fica à espera dela
+ * e a compilação fica à espera do pedido. Aí a página gira sem logs.
+ * Fora de dev, confirma a sessão no better-auth.
  */
-export async function middleware(request: NextRequest) {
-  const { pathname } = request.nextUrl;
-  if (request.method === 'OPTIONS' || isPublicApi(pathname) || isPublicPage(pathname)) {
-    return NextResponse.next();
+async function sessaoValida(request: NextRequest): Promise<boolean> {
+  if (process.env.NODE_ENV === 'development') {
+    return Boolean(getSessionCookie(request));
   }
 
   const sessionUrl = new URL('/api/auth/get-session', request.nextUrl.origin);
-  let valid = false;
   try {
     const res = await fetch(sessionUrl, {
       headers: { cookie: request.headers.get('cookie') ?? '' },
       cache: 'no-store',
       signal: AbortSignal.timeout(20_000),
     });
-    if (res.status >= 500) return NextResponse.next();
-    if (res.ok) {
-      const data = (await res.json().catch(() => null)) as { session?: unknown; user?: unknown } | null;
-      valid = Boolean(data?.session && data?.user);
-    }
+    if (res.status >= 500) return true;
+    if (!res.ok) return false;
+    const data = (await res.json().catch(() => null)) as { session?: unknown; user?: unknown } | null;
+    return Boolean(data?.session && data?.user);
   } catch {
+    return true;
+  }
+}
+
+export async function middleware(request: NextRequest) {
+  const { pathname } = request.nextUrl;
+  if (request.method === 'OPTIONS' || isPublicApi(pathname) || isPublicPage(pathname)) {
     return NextResponse.next();
   }
 
-  if (valid) return NextResponse.next();
+  if (await sessaoValida(request)) return NextResponse.next();
 
   if (pathname.startsWith('/api/')) {
     return NextResponse.json(
@@ -65,8 +72,7 @@ export async function middleware(request: NextRequest) {
   }
 
   const login = new URL('/login', request.url);
-  const hadSessionCookie = (request.headers.get('cookie') ?? '').includes('session_token');
-  if (hadSessionCookie) login.searchParams.set('expired', '1');
+  if (getSessionCookie(request)) login.searchParams.set('expired', '1');
   return NextResponse.redirect(login);
 }
 

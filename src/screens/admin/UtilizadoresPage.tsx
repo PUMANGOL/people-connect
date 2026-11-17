@@ -1,15 +1,15 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Search, Trash2, Users, ShieldAlert, ShieldCheck, ShieldOff, User, GraduationCap, UserCheck, Filter } from 'lucide-react';
+import { Search, Trash2, Users, ShieldAlert, ShieldCheck, ShieldOff, User, GraduationCap, UserCheck, Filter, UserCog } from 'lucide-react';
 import { motion } from 'motion/react';
 import { Button } from '@/src/components/ui/button';
 import { Input, Select } from '@/src/components/ui/input';
 import { Badge, Avatar } from '@/src/components/ui/badge';
 import { EmptyState } from '@/src/components/ui/card';
 import { SkeletonList } from '@/src/components/ui/skeleton';
-import { ConfirmDialog } from '@/src/components/ui/dialog';
+import { ConfirmDialog, Dialog } from '@/src/components/ui/dialog';
 import { staggerContainer, staggerItem } from '@/src/lib/animations';
 import { toast } from '@/src/store/ui.store';
-import { utilizadoresService, type UtilizadorRow } from '@/src/services/utilizadores.service';
+import { utilizadoresService, type OperacaoPapel, type UtilizadorRow } from '@/src/services/utilizadores.service';
 import { useAuthStore } from '@/src/store/auth.store';
 import { Paginacao, paginar } from '@/src/components/ui/paginacao';
 
@@ -17,14 +17,61 @@ const POR_PAGINA = 20;
 
 const PERFIL_OPTIONS = [
   { value: 'rh_admin', label: 'Administrador DPC' },
-  { value: 'mentor', label: 'Mentor' },
-  { value: 'novo_colaborador', label: 'Novo Colaborador' },
+  { value: 'mentor', label: 'Colaborador' },
+  { value: 'novo_colaborador', label: 'Mentorado' },
 ];
 
-function perfilBadge(perfil: string) {
-  if (perfil === 'rh_admin') return { label: 'Admin DPC', variant: 'accent' as const, Icon: ShieldAlert };
-  if (perfil === 'mentor') return { label: 'Mentor', variant: 'info' as const, Icon: GraduationCap };
-  return { label: 'Colaborador', variant: 'neutral' as const, Icon: UserCheck };
+const OPERACOES: { id: OperacaoPapel; label: string; descricao: string }[] = [
+  {
+    id: 'remover_mentor',
+    label: 'Remover como mentor',
+    descricao: 'Deixa de ver o portal de mentor. As atribuições activas terminam e a pessoa mantém a conta.',
+  },
+  {
+    id: 'remover_mentorado',
+    label: 'Remover como mentorado',
+    descricao: 'Termina o mentor atribuído. A pessoa continua no grupo dos novos até passar a colaborador.',
+  },
+  {
+    id: 'mentorado_para_colaborador',
+    label: 'Passar a colaborador',
+    descricao: 'Sai do grupo Mentorados e passa para Colaboradores. Deixa de estar em acompanhamento.',
+  },
+  {
+    id: 'colaborador_para_mentor',
+    label: 'Passar a mentor',
+    descricao: 'Entra no grupo Mentores e passa a ver o portal, além do acesso de colaborador.',
+  },
+  {
+    id: 'mentor_para_colaborador',
+    label: 'Passar a colaborador simples',
+    descricao: 'Sai do grupo Mentores, as atribuições terminam e fica só como colaborador.',
+  },
+];
+
+function rotuloPerfil(perfil: string): string {
+  if (perfil === 'rh_admin') return 'administrador';
+  if (perfil === 'novo_colaborador') return 'mentorado';
+  return 'colaborador';
+}
+
+function ligado(valor: unknown): boolean {
+  return valor === true || valor === 't' || valor === 'true' || valor === 1;
+}
+
+function eMentor(pessoa: UtilizadorRow): boolean {
+  return ligado(pessoa.no_grupo_mentores) || Number(pessoa.mentorados_activos) > 0;
+}
+
+function operacoesDe(pessoa: UtilizadorRow): OperacaoPapel[] {
+  const mentor = eMentor(pessoa);
+  const mentorado = pessoa.perfil === 'novo_colaborador';
+  const ids: OperacaoPapel[] = [];
+  if (mentor) ids.push('remover_mentor', 'mentor_para_colaborador');
+  if (mentorado && ligado(pessoa.tem_mentor)) ids.push('remover_mentorado');
+  if (mentorado) ids.push('mentorado_para_colaborador');
+  if (!mentor && !mentorado) ids.push('colaborador_para_mentor');
+  return ids;
 }
 
 export default function UtilizadoresPage() {
@@ -38,6 +85,9 @@ export default function UtilizadoresPage() {
   const [removing, setRemoving] = useState(false);
   const [toToggleAdmin, setToToggleAdmin] = useState<UtilizadorRow | null>(null);
   const [togglingAdmin, setTogglingAdmin] = useState(false);
+  const [papelDe, setPapelDe] = useState<UtilizadorRow | null>(null);
+  const [operacao, setOperacao] = useState<OperacaoPapel | null>(null);
+  const [aMudarPapel, setAMudarPapel] = useState(false);
 
   async function carregar() {
     setLoading(true);
@@ -102,7 +152,7 @@ export default function UtilizadoresPage() {
         promover ? 'Promovido a administrador' : 'Administrador removido',
         promover
           ? `${toToggleAdmin.nome} tem agora acesso total à plataforma.`
-          : `${toToggleAdmin.nome} passou a ${perfilBadge(res.perfil).label.toLowerCase()}.`,
+          : `${toToggleAdmin.nome} passou a ${rotuloPerfil(res.perfil)}.`,
       );
       setToToggleAdmin(null);
     } catch (err) {
@@ -113,11 +163,30 @@ export default function UtilizadoresPage() {
     }
   }
 
+  async function handlePapel() {
+    if (!papelDe || !operacao) return;
+    setAMudarPapel(true);
+    try {
+      await utilizadoresService.papel(papelDe.id, operacao);
+      const texto = OPERACOES.find((item) => item.id === operacao)?.label ?? 'Papel actualizado';
+      toast.success(texto, papelDe.nome);
+      setOperacao(null);
+      setPapelDe(null);
+      carregar();
+    } catch (err) {
+      const resp = (err as { response?: { data?: { error?: string; message?: string } } }).response;
+      toast.error('Não foi possível alterar o papel', resp?.data?.error ?? resp?.data?.message ?? 'Tenta novamente.');
+    } finally {
+      setAMudarPapel(false);
+    }
+  }
+
   const kpis = {
     total: rows.length,
     admins: rows.filter((r) => r.perfil === 'rh_admin').length,
-    mentores: rows.filter((r) => r.perfil === 'mentor').length,
-    colaboradores: rows.filter((r) => r.perfil === 'novo_colaborador').length,
+    mentores: rows.filter((r) => eMentor(r)).length,
+    colaboradores: rows.filter((r) => r.perfil === 'mentor').length,
+    mentorados: rows.filter((r) => r.perfil === 'novo_colaborador').length,
   };
 
   return (
@@ -130,16 +199,18 @@ export default function UtilizadoresPage() {
       <motion.div variants={staggerItem}>
         <h1 className="text-2xl font-bold text-neutral-900">Utilizadores</h1>
         <p className="mt-1 text-sm text-neutral-500">
-          Gestão administrativa das contas da plataforma. Elimina utilizadores em cascata (colaborador,
-          progresso, feedback e avaliações associados são removidos junto).
+          Gestão administrativa das contas da plataforma. O ícone ao lado do escudo muda o papel
+          (mentor, mentorado ou colaborador). Eliminar uma conta remove também o colaborador,
+          o progresso, o feedback e as avaliações.
         </p>
       </motion.div>
 
-      <motion.div variants={staggerItem} className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+      <motion.div variants={staggerItem} className="grid grid-cols-2 gap-3 sm:grid-cols-5">
         <KpiTile icon={<Users className="h-4 w-4" />} label="Total" value={kpis.total} />
         <KpiTile icon={<ShieldAlert className="h-4 w-4" />} label="Admins" value={kpis.admins} />
         <KpiTile icon={<GraduationCap className="h-4 w-4" />} label="Mentores" value={kpis.mentores} />
         <KpiTile icon={<UserCheck className="h-4 w-4" />} label="Colaboradores" value={kpis.colaboradores} />
+        <KpiTile icon={<User className="h-4 w-4" />} label="Mentorados" value={kpis.mentorados} />
       </motion.div>
 
       <motion.div variants={staggerItem} className="flex flex-wrap items-center gap-3 rounded-xl border border-neutral-200 bg-white px-4 py-3">
@@ -189,9 +260,8 @@ export default function UtilizadoresPage() {
       ) : (
         <motion.div variants={staggerItem} className="space-y-2">
           {paginaLista.visiveis.map((r) => {
-            const info = perfilBadge(r.perfil);
-            const Icon = info.Icon;
             const isSelf = currentUser?.id === r.id;
+            const mentor = eMentor(r);
             return (
               <div
                 key={r.id}
@@ -211,21 +281,32 @@ export default function UtilizadoresPage() {
                     {r.email} · {r.departamento || 'sem direcção'}
                   </p>
                   <div className="mt-1.5 flex flex-wrap items-center gap-2">
-                    <Badge variant={info.variant} size="sm">
-                      <Icon className="h-3 w-3" />
-                      {info.label}
-                    </Badge>
+                    {r.perfil === 'rh_admin' && (
+                      <Badge variant="accent" size="sm"><ShieldAlert className="h-3 w-3" /> Admin DPC</Badge>
+                    )}
+                    {r.perfil === 'novo_colaborador' ? (
+                      <Badge variant="neutral" size="sm"><User className="h-3 w-3" /> Mentorado</Badge>
+                    ) : (
+                      <Badge variant="neutral" size="sm"><UserCheck className="h-3 w-3" /> Colaborador</Badge>
+                    )}
+                    {mentor && (
+                      <Badge variant="info" size="sm"><GraduationCap className="h-3 w-3" /> Mentor</Badge>
+                    )}
+                    {ligado(r.tem_mentor) && (
+                      <Badge variant="neutral" size="sm">Com mentor</Badge>
+                    )}
                     <Badge variant={r.estado === 'activo' ? 'success' : 'neutral'} size="sm">
                       {r.estado === 'activo' ? 'Activo' : 'Inactivo'}
                     </Badge>
-                    {r.is_colaborador > 0 && (
-                      <Badge variant="neutral" size="sm">Tem ficha de colaborador</Badge>
-                    )}
-                    {r.is_mentor_activo > 0 && (
-                      <Badge variant="neutral" size="sm">Mentor activo</Badge>
-                    )}
                   </div>
                 </div>
+                <button
+                  onClick={() => { setPapelDe(r); setOperacao(null); }}
+                  title="Mudar papel"
+                  className="rounded-md p-2 text-navy-500 hover:bg-navy-50 hover:text-navy-700 transition-colors"
+                >
+                  <UserCog className="h-4 w-4" />
+                </button>
                 <button
                   onClick={() => setToToggleAdmin(r)}
                   disabled={isSelf}
@@ -268,13 +349,45 @@ export default function UtilizadoresPage() {
           !toToggleAdmin
             ? ''
             : toToggleAdmin.perfil === 'rh_admin'
-              ? `${toToggleAdmin.nome} perde o acesso de administrador e volta a ${toToggleAdmin.is_mentor_activo > 0 ? 'mentor' : 'colaborador'}.`
+              ? `${toToggleAdmin.nome} perde o acesso de administrador. O papel de mentor ou de colaborador mantém-se.`
               : `${toToggleAdmin.nome} passa a ter acesso total à plataforma.${toToggleAdmin.is_mentor_activo > 0 ? ' Continua a ver e acompanhar os seus mentorados em «A Minha Mentoria».' : ''}`
         }
         confirmLabel={toToggleAdmin?.perfil === 'rh_admin' ? 'Sim, retirar' : 'Sim, promover'}
         destructive={toToggleAdmin?.perfil === 'rh_admin'}
         loading={togglingAdmin}
       />
+
+      <Dialog open={!!papelDe} onClose={() => { if (!aMudarPapel) { setPapelDe(null); setOperacao(null); } }} className="max-w-lg">
+        <h2 className="text-lg font-semibold text-foreground">Papel de {papelDe?.nome}</h2>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Escolhe o que muda. A conta e o histórico mantêm-se.
+        </p>
+        <div className="mt-4 space-y-2">
+          {papelDe && operacoesDe(papelDe).map((id) => {
+            const item = OPERACOES.find((op) => op.id === id);
+            if (!item) return null;
+            const escolhida = operacao === id;
+            return (
+              <button
+                key={id}
+                type="button"
+                onClick={() => setOperacao(id)}
+                className={`w-full rounded-lg border px-3 py-2.5 text-left transition-colors ${escolhida ? 'border-primary bg-primary/5' : 'border-border hover:bg-muted'}`}
+              >
+                <span className="block text-sm font-medium text-foreground">{item.label}</span>
+                <span className="mt-0.5 block text-xs leading-relaxed text-muted-foreground">{item.descricao}</span>
+              </button>
+            );
+          })}
+          {papelDe && operacoesDe(papelDe).length === 0 && (
+            <p className="text-sm text-muted-foreground">Não há mudanças de papel para esta conta.</p>
+          )}
+        </div>
+        <div className="mt-6 flex justify-end gap-3">
+          <Button variant="ghost" onClick={() => { setPapelDe(null); setOperacao(null); }} disabled={aMudarPapel}>Cancelar</Button>
+          <Button onClick={handlePapel} loading={aMudarPapel} disabled={!operacao}>Confirmar</Button>
+        </div>
+      </Dialog>
 
       <ConfirmDialog
         open={!!toRemove}

@@ -210,7 +210,8 @@ export default async (req: Request): Promise<Response> => {
     if (accao === 'imagem' && req.method === 'PUT') {
       const body = (await req.json().catch(() => ({}))) as Record<string, unknown>;
       const tipo = body.tipo;
-      if (tipo !== 'foto' && tipo !== 'capa') return errorResponse('Tipo de imagem inválido', 400);
+      if (tipo === 'capa') return errorResponse('A capa do perfil é fixa.', 400);
+      if (tipo !== 'foto') return errorResponse('Tipo de imagem inválido', 400);
       const key = typeof body.key === 'string' ? body.key : '';
       await confirmarEnvio(tipo, key, `perfis/${user.id}/${tipo}`);
 
@@ -233,7 +234,8 @@ export default async (req: Request): Promise<Response> => {
 
     if (accao === 'imagem' && req.method === 'DELETE') {
       const tipo = url.searchParams.get('tipo');
-      if (tipo !== 'foto' && tipo !== 'capa') return errorResponse('Tipo de imagem inválido', 400);
+      if (tipo === 'capa') return errorResponse('A capa do perfil é fixa.', 400);
+      if (tipo !== 'foto') return errorResponse('Tipo de imagem inválido', 400);
       const [anterior] = await sql`SELECT foto_key, capa_key FROM perfis_utilizador WHERE utilizador_id = ${user.id}`;
       if (tipo === 'foto') await sql`UPDATE perfis_utilizador SET foto_key = NULL, updated_at = now() WHERE utilizador_id = ${user.id}`;
       else await sql`UPDATE perfis_utilizador SET capa_key = NULL, updated_at = now() WHERE utilizador_id = ${user.id}`;

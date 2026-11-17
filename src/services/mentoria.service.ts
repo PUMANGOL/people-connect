@@ -16,7 +16,7 @@ export const mentorsService = {
   list: (silencioso = false) => data<Array<Mentor & { nome: string; email: string; departamento: string }>>(
     apiClient.get('/mentors', { silencioso }),
   ),
-  create: (p: { nome: string; email?: string; departamento: string; categorias_suportadas?: CategoriaTrilho[]; bio?: string }) =>
+  create: (p: { nome: string; email?: string; departamento: string; categorias_suportadas?: CategoriaTrilho[]; bio?: string; como_mentor?: boolean }) =>
     data<{ mentor: Mentor; credenciais: { email: string; password: string } | null }>(
       apiClient.post('/mentors', p),
     ),

@@ -20,13 +20,16 @@ import { cn } from '@/lib/utils';
 
 const PERFIL: Record<string, string> = {
   rh_admin: 'Admin DPC',
-  mentor: 'Mentor',
-  novo_colaborador: 'Colaborador',
+  mentor: 'Colaborador',
+  novo_colaborador: 'Mentorado',
 };
 
 function mensagem(err: unknown, fallback: string) {
   const data = (err as { response?: { data?: { error?: string; message?: string } } }).response?.data;
-  return data?.error ?? data?.message ?? fallback;
+  const doServidor = data?.error ?? data?.message;
+  if (doServidor) return doServidor;
+  if (err instanceof Error && err.message && !/network error/i.test(err.message)) return err.message;
+  return fallback;
 }
 
 export default function AcessosPage() {
@@ -136,15 +139,13 @@ export default function AcessosPage() {
   }
 
   async function guardar() {
-    if (!grupoId) return;
+    if (!grupoId || !grupo) return;
     setAGravar(true);
     try {
-      const next = await acessosService.guardarGrupo(grupoId, {
-        nome,
-        descricao,
-        utilizador_ids: membros,
-        acesso_ids: paginasIds,
-      });
+      const pedido: { nome: string; descricao: string; utilizador_ids?: string[]; acesso_ids?: string[] } = { nome, descricao };
+      if (!mesmoConjunto(membros, grupo.membros.map((m) => m.id))) pedido.utilizador_ids = membros;
+      if (!mesmoConjunto(paginasIds, grupo.acesso_ids)) pedido.acesso_ids = paginasIds;
+      const next = await acessosService.guardarGrupo(grupoId, pedido);
       preencher(next, grupoId);
       toast.success('Grupo actualizado', 'Pessoas e páginas gravadas.');
       await refrescarMenu();

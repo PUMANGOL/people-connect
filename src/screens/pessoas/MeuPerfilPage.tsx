@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import {
-  Award, Briefcase, Camera, CalendarDays, ChevronDown, Eye, HandHeart, ImagePlus, Mail, MapPin,
-  Megaphone, MessageCircle, Network, Pencil, Phone, Route as RouteIcon, Share2, Sparkles, Trash2, UserRound,
+  Award, Briefcase, Camera, CalendarDays, ChevronDown, Eye, HandHeart, Mail, MapPin,
+  Megaphone, MessageCircle, Network, Pencil, Phone, Route as RouteIcon, Share2, Sparkles, UserRound,
   Users, X,
 } from 'lucide-react';
 import { ArvoreEstrutura, ListaColegas, temEstrutura } from '@/src/components/EstruturaOrganica';
@@ -11,6 +11,7 @@ import { FormField, Input, Textarea } from '@/src/components/ui/input';
 import { Skeleton } from '@/src/components/ui/skeleton';
 import { toast } from '@/src/store';
 import { useAuthStore } from '@/src/store/auth.store';
+import { CAPA_PERFIL } from '@/lib/constants';
 import { cn, formatDate, formatRelativeTime, getInitials } from '@/lib/utils';
 import { erroPedido } from '@/src/lib/erro-pedido';
 import { PERFIL_LABEL } from '@/src/services/pessoas.service';
@@ -64,11 +65,10 @@ export default function MeuPerfilPage() {
   const [perfil, setPerfil] = useState<MeuPerfil | null>(null);
   const [estado, setEstado] = useState<'loading' | 'ok' | 'erro'>('loading');
   const [separador, setSeparador] = useState<Separador>('geral');
-  const [envio, setEnvio] = useState<{ tipo: 'foto' | 'capa'; pct: number } | null>(null);
-  const [aRemover, setARemover] = useState<'foto' | 'capa' | null>(null);
+  const [envio, setEnvio] = useState<{ pct: number } | null>(null);
+  const [aRemover, setARemover] = useState(false);
   const [menuDisponibilidade, setMenuDisponibilidade] = useState(false);
   const inputFoto = useRef<HTMLInputElement>(null);
-  const inputCapa = useRef<HTMLInputElement>(null);
 
   async function carregar() {
     setEstado('loading');
@@ -88,18 +88,18 @@ export default function MeuPerfilPage() {
     if (eu) setUser({ ...eu, foto_url: url });
   }
 
-  async function enviarImagem(tipo: 'foto' | 'capa', file: File) {
-    const invalido = validarFicheiro(tipo, file);
+  async function enviarFoto(file: File) {
+    const invalido = validarFicheiro('foto', file);
     if (invalido) {
       toast.error('Imagem não aceite', invalido);
       return;
     }
-    setEnvio({ tipo, pct: 0 });
+    setEnvio({ pct: 0 });
     try {
-      const url = await perfilService.enviarImagem(tipo, file, (pct) => setEnvio({ tipo, pct }));
-      setPerfil((p) => p && (tipo === 'foto' ? { ...p, foto_url: url } : { ...p, capa_url: url }));
-      if (tipo === 'foto') sincronizarFoto(url);
-      toast.success(tipo === 'foto' ? 'Foto actualizada' : 'Capa actualizada');
+      const url = await perfilService.enviarImagem('foto', file, (pct) => setEnvio({ pct }));
+      setPerfil((p) => p && { ...p, foto_url: url });
+      sincronizarFoto(url);
+      toast.success('Foto actualizada');
     } catch (e) {
       const { msg, jaNotificado } = erroPedido(e, 'Não foi possível guardar a imagem.');
       if (!jaNotificado) toast.error('Imagem por guardar', msg);
@@ -108,18 +108,18 @@ export default function MeuPerfilPage() {
     }
   }
 
-  async function removerImagem(tipo: 'foto' | 'capa') {
-    setARemover(tipo);
+  async function removerFoto() {
+    setARemover(true);
     try {
-      await perfilService.removerImagem(tipo);
-      setPerfil((p) => p && (tipo === 'foto' ? { ...p, foto_url: null } : { ...p, capa_url: null }));
-      if (tipo === 'foto') sincronizarFoto(null);
-      toast.success(tipo === 'foto' ? 'Foto removida' : 'Capa removida');
+      await perfilService.removerImagem('foto');
+      setPerfil((p) => p && { ...p, foto_url: null });
+      sincronizarFoto(null);
+      toast.success('Foto removida');
     } catch (e) {
       const { msg, jaNotificado } = erroPedido(e, 'Não foi possível remover a imagem.');
       if (!jaNotificado) toast.error('Imagem por remover', msg);
     } finally {
-      setARemover(null);
+      setARemover(false);
     }
   }
 
@@ -152,7 +152,6 @@ export default function MeuPerfilPage() {
     if (!perfil) return { pct: 0, falta: [] as string[] };
     const itens = [
       { ok: !!perfil.foto_url, label: 'foto' },
-      { ok: !!perfil.capa_url, label: 'capa' },
       { ok: !!perfil.bio, label: 'sobre mim' },
       { ok: !!perfil.localizacao, label: 'localização' },
       { ok: !!(perfil.telefone || perfil.extensao), label: 'contacto' },
@@ -186,54 +185,12 @@ export default function MeuPerfilPage() {
         type="file"
         accept={REGRAS_FICHEIRO.foto.aceitar}
         className="hidden"
-        onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ''; if (f) void enviarImagem('foto', f); }}
-      />
-      <input
-        ref={inputCapa}
-        type="file"
-        accept={REGRAS_FICHEIRO.capa.aceitar}
-        className="hidden"
-        onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ''; if (f) void enviarImagem('capa', f); }}
+        onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ''; if (f) void enviarFoto(f); }}
       />
 
       <section className="overflow-hidden rounded-xl border border-navy-100 bg-white shadow-card">
-        {/* Capa */}
         <div className="relative h-40 bg-navy-800 sm:h-52">
-          {perfil.capa_url ? (
-            <img src={perfil.capa_url} alt="" className="h-full w-full object-cover" />
-          ) : (
-            <div
-              className="h-full w-full"
-              style={{
-                backgroundImage:
-                  'radial-gradient(circle at 18% 30%, rgba(255,255,255,0.10), transparent 42%), radial-gradient(circle at 85% 10%, rgba(120,190,32,0.35), transparent 45%), linear-gradient(120deg, #014d33, #016d47 55%, #0b7f52)',
-              }}
-            />
-          )}
-          {envio?.tipo === 'capa' && <ProgressoImagem pct={envio.pct} />}
-          <div className="absolute right-3 top-3 flex gap-2">
-            {perfil.capa_url && (
-              <button
-                type="button"
-                onClick={() => void removerImagem('capa')}
-                disabled={!!envio || aRemover === 'capa'}
-                className="inline-flex h-8 items-center rounded-md bg-black/35 px-2.5 text-white backdrop-blur-sm transition-colors hover:bg-black/50 disabled:opacity-60"
-                aria-label="Remover capa"
-                title="Remover capa"
-              >
-                <Trash2 className="h-3.5 w-3.5" />
-              </button>
-            )}
-            <button
-              type="button"
-              onClick={() => inputCapa.current?.click()}
-              disabled={!!envio}
-              className="inline-flex h-8 items-center gap-1.5 rounded-md bg-white/90 px-3 text-xs font-semibold text-navy-800 shadow-sm backdrop-blur-sm transition-colors hover:bg-white disabled:opacity-60"
-            >
-              <ImagePlus className="h-3.5 w-3.5" />
-              {perfil.capa_url ? 'Alterar capa' : 'Adicionar capa'}
-            </button>
-          </div>
+          <img src={CAPA_PERFIL} alt="" className="h-full w-full object-cover object-center" />
         </div>
 
         <div className="px-5 pb-5 sm:px-8">
@@ -242,7 +199,7 @@ export default function MeuPerfilPage() {
               {/* Foto */}
               <div className="relative -mt-14 w-fit shrink-0 sm:-mt-16">
                 <Retrato nome={perfil.nome} src={perfil.foto_url} className="h-28 w-28 text-3xl ring-4 ring-white sm:h-32 sm:w-32" />
-                {envio?.tipo === 'foto' && <ProgressoImagem pct={envio.pct} redondo />}
+                {envio && <ProgressoImagem pct={envio.pct} redondo />}
                 <button
                   type="button"
                   onClick={() => inputFoto.current?.click()}
@@ -388,8 +345,8 @@ export default function MeuPerfilPage() {
           perfil={perfil}
           envio={envio}
           aRemover={aRemover}
-          onEscolher={(tipo) => (tipo === 'foto' ? inputFoto : inputCapa).current?.click()}
-          onRemover={(tipo) => void removerImagem(tipo)}
+          onEscolher={() => inputFoto.current?.click()}
+          onRemover={() => void removerFoto()}
           onGuardado={(dados) => setPerfil((p) => p && { ...p, ...dados })}
         />
       )}
@@ -553,10 +510,10 @@ function DadosPreferencias({
   perfil, envio, aRemover, onEscolher, onRemover, onGuardado,
 }: {
   perfil: MeuPerfil;
-  envio: { tipo: 'foto' | 'capa'; pct: number } | null;
-  aRemover: 'foto' | 'capa' | null;
-  onEscolher: (tipo: 'foto' | 'capa') => void;
-  onRemover: (tipo: 'foto' | 'capa') => void;
+  envio: { pct: number } | null;
+  aRemover: boolean;
+  onEscolher: () => void;
+  onRemover: () => void;
   onGuardado: (dados: PerfilEditavel) => void;
 }) {
   const [form, setForm] = useState<PerfilEditavel>(() => editavelDe(perfil));
@@ -683,35 +640,18 @@ function DadosPreferencias({
       </div>
 
       <div className="space-y-6">
-        <Cartao titulo="Imagens" icon={Camera}>
-          <div className="space-y-5">
-            <LinhaImagem
-              titulo="Foto de perfil"
-              descricao={REGRAS_FICHEIRO.foto.descricao}
-              preview={<Retrato nome={perfil.nome} src={perfil.foto_url} className="h-14 w-14 text-base" />}
-              tem={!!perfil.foto_url}
-              aEnviar={envio?.tipo === 'foto' ? envio.pct : null}
-              aRemover={aRemover === 'foto'}
-              bloqueado={!!envio}
-              onEscolher={() => onEscolher('foto')}
-              onRemover={() => onRemover('foto')}
-            />
-            <LinhaImagem
-              titulo="Imagem de capa"
-              descricao={`${REGRAS_FICHEIRO.capa.descricao}. Ideal 1600 × 400.`}
-              preview={
-                <div className="h-14 w-24 overflow-hidden rounded-md bg-navy-700">
-                  {perfil.capa_url && <img src={perfil.capa_url} alt="" className="h-full w-full object-cover" />}
-                </div>
-              }
-              tem={!!perfil.capa_url}
-              aEnviar={envio?.tipo === 'capa' ? envio.pct : null}
-              aRemover={aRemover === 'capa'}
-              bloqueado={!!envio}
-              onEscolher={() => onEscolher('capa')}
-              onRemover={() => onRemover('capa')}
-            />
-          </div>
+        <Cartao titulo="Foto de perfil" icon={Camera}>
+          <LinhaImagem
+            titulo="Foto"
+            descricao={REGRAS_FICHEIRO.foto.descricao}
+            preview={<Retrato nome={perfil.nome} src={perfil.foto_url} className="h-14 w-14 text-base" />}
+            tem={!!perfil.foto_url}
+            aEnviar={envio ? envio.pct : null}
+            aRemover={aRemover}
+            bloqueado={!!envio}
+            onEscolher={onEscolher}
+            onRemover={onRemover}
+          />
         </Cartao>
 
         <Cartao titulo="Dados da DPC" icon={Briefcase}>
@@ -775,7 +715,7 @@ function ListaActividade({ itens }: { itens: ActividadePerfil[] }) {
   return (
     <ul className="divide-y divide-navy-50">
       {itens.map((a, i) => {
-        const href = a.tipo === 'reconhecimento' || !a.post_id ? '/reconhecimento' : `/inicio/publicacao/${a.post_id}`;
+        const href = a.tipo === 'reconhecimento' || !a.post_id ? '/reconhecimento' : `/noticias/publicacao/${a.post_id}`;
         const Icone = a.tipo === 'publicacao' ? Megaphone : a.tipo === 'reconhecimento' ? Award : MessageCircle;
         const accao = a.tipo === 'publicacao'
           ? 'Publicaste'

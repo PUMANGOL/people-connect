@@ -59,9 +59,9 @@ export interface PainelAcessos {
  * nesta lista: fica sem grupos, logo invisível, até ser marcada em Acessos.
  */
 const CHAVES_MENU_INICIAL = [
-  'inicio', 'eventos', 'reconhecimento', 'meu-perfil', 'dashboard',
+  'inicio', 'noticias', 'eventos', 'reconhecimento', 'meu-perfil', 'dashboard',
   'recrutamento-semanal', 'candidatos', 'admissao',
-  'onboarding', 'fichas', 'trilhos', 'catalogos', 'quiz', 'videos', 'evolucao', 'documentos-empresa', 'documentos-exigidos',
+  'onboarding', 'colaboradores', 'fichas', 'trilhos', 'catalogos', 'quiz', 'videos', 'evolucao', 'documentos-empresa', 'documentos-exigidos',
   'mentores', 'centro-avaliacoes', 'comparacao-360', 'assistente',
   'mentor', 'mentor-mentorados', 'mentor-avaliacoes', 'mentor-notificacoes',
   'meu-trilho', 'minha-ficha', 'timeline', 'comentarios-mentor', 'feedback', 'meus-documentos', 'submissoes',
@@ -76,10 +76,54 @@ async function sincronizar(): Promise<void> {
     VALUES
       ('DEV', 'dev', 'Contas de desenvolvimento. Gerem os acessos e podem ver páginas em teste.', true),
       ('Administradores', 'administradores', 'Páginas que o administrador DPC já via no menu.', true),
-      ('Mentores', 'mentores', 'Quem tem um novo colaborador atribuído. Vê o portal de mentor, além do acesso de colaborador.', true),
-      ('Colaboradores', 'colaboradores', 'Colaboradores. Os novos têm o mesmo acesso dos restantes.', true)
+      ('Mentores', 'mentores', 'Quem acompanha mentorados. Vê o portal de mentor, além do acesso de colaborador.', true),
+      ('Colaboradores', 'colaboradores', 'Colaboradores. Não inclui os novos em acompanhamento.', true),
+      ('Mentorados', 'mentorados', 'Novos colaboradores em acompanhamento. Grupo à parte dos colaboradores.', true)
     ON CONFLICT (chave) DO NOTHING
   `;
+
+  const [paginasMentorados] = await sql`
+    SELECT COUNT(*)::int AS n
+      FROM grupo_acesso ga
+      JOIN grupo g ON g.id = ga.grupo_id
+     WHERE g.chave = 'mentorados'
+  `;
+  if ((paginasMentorados.n as number) === 0) {
+    await sql`
+      INSERT INTO grupo_acesso (grupo_id, acesso_id)
+      SELECT destino.id, ga.acesso_id
+        FROM grupo_acesso ga
+        JOIN grupo origem ON origem.id = ga.grupo_id AND origem.chave = 'colaboradores'
+        JOIN grupo destino ON destino.chave = 'mentorados'
+      ON CONFLICT DO NOTHING
+    `;
+  }
+
+  const [membrosMentorados] = await sql`
+    SELECT COUNT(*)::int AS n
+      FROM grupo_utilizador gu
+      JOIN grupo g ON g.id = gu.grupo_id
+     WHERE g.chave = 'mentorados'
+  `;
+  if ((membrosMentorados.n as number) === 0) {
+    await sql`
+      INSERT INTO grupo_utilizador (grupo_id, utilizador_id)
+      SELECT g.id, u.id
+        FROM utilizadores u
+        JOIN grupo g ON g.chave = 'mentorados'
+       WHERE u.estado = 'activo'
+         AND u.perfil = 'novo_colaborador'
+      ON CONFLICT DO NOTHING
+    `;
+    await sql`
+      DELETE FROM grupo_utilizador gu
+       USING grupo g, utilizadores u
+       WHERE gu.grupo_id = g.id
+         AND g.chave = 'colaboradores'
+         AND gu.utilizador_id = u.id
+         AND u.perfil = 'novo_colaborador'
+    `;
+  }
 
   for (const pagina of PAGINAS) {
     await sql`
@@ -119,7 +163,7 @@ async function sincronizar(): Promise<void> {
     INSERT INTO grupo_acesso (grupo_id, acesso_id)
     SELECT g.id, a.id
       FROM acesso a
-      JOIN grupo g ON g.chave IN ('administradores', 'mentores', 'colaboradores')
+      JOIN grupo g ON g.chave IN ('administradores', 'mentores', 'colaboradores', 'mentorados')
      WHERE a.concessao_inicial = false
        AND a.sistema = false
        AND a.chave = ANY(${chaves}::text[])
@@ -157,7 +201,7 @@ async function sincronizar(): Promise<void> {
     INSERT INTO grupo_acesso (grupo_id, acesso_id)
     SELECT g.id, a.id
       FROM acesso a
-      JOIN grupo g ON g.chave = 'colaboradores'
+      JOIN grupo g ON g.chave IN ('colaboradores', 'mentorados')
      WHERE a.concessao_inicial = false
        AND a.sistema = false
        AND a.chave = ANY(${chaves}::text[])
@@ -246,8 +290,8 @@ async function temAtribuicaoActiva(utilizadorId: string): Promise<boolean> {
 }
 
 /**
- * Actualiza o grupo Mentores da conta ligada a esta ficha.
- * Entra com uma atribuição activa e sai quando já não tem nenhuma.
+ * Uma atribuição activa mete a conta no grupo Mentores.
+ * Sair desse grupo é uma decisão do admin (não acontece ao terminar a última atribuição).
  */
 export async function reflectirGrupoDoMentor(mentorId: string): Promise<void> {
   await garantirControloAcesso();
@@ -261,11 +305,17 @@ export async function reflectirGrupoDoMentor(mentorId: string): Promise<void> {
      WHERE m.id = ${mentorId}
   `;
   const uid = linhas[0]?.uid as string | null | undefined;
-  if (!uid) return;
-  if (linhas[0].activo) {
+  if (!uid || !linhas[0].activo) return;
+  await definirMembroGrupo(uid, 'mentores', true);
+}
+
+/** Mete ou tira uma conta de um grupo de acesso. */
+export async function definirMembroGrupo(utilizadorId: string, chave: string, membro: boolean): Promise<void> {
+  await garantirControloAcesso();
+  if (membro) {
     await sql`
       INSERT INTO grupo_utilizador (grupo_id, utilizador_id)
-      SELECT id, ${uid} FROM grupo WHERE chave = 'mentores'
+      SELECT id, ${utilizadorId} FROM grupo WHERE chave = ${chave}
       ON CONFLICT DO NOTHING
     `;
     return;
@@ -274,18 +324,19 @@ export async function reflectirGrupoDoMentor(mentorId: string): Promise<void> {
     DELETE FROM grupo_utilizador gu
      USING grupo g
      WHERE gu.grupo_id = g.id
-       AND g.chave = 'mentores'
-       AND gu.utilizador_id = ${uid}
+       AND g.chave = ${chave}
+       AND gu.utilizador_id = ${utilizadorId}
   `;
 }
 
-/** Conta nova, ainda sem grupos: colaboradores (antigos e novos) partilham o mesmo grupo. Mentor só com atribuição activa. */
+/** Conta nova, ainda sem grupos. Novos ficam em Mentorados; os restantes em Colaboradores. */
 async function garantirGrupoSeVazio(utilizadorId: string, role: string): Promise<void> {
   const actual = await sql`SELECT COUNT(*)::int AS n FROM grupo_utilizador WHERE utilizador_id = ${utilizadorId}`;
   if ((actual[0].n as number) > 0) return;
   const chaves: string[] = [];
   if (role === 'rh_admin') chaves.push('administradores');
-  if (role === 'mentor' || role === 'novo_colaborador') chaves.push('colaboradores');
+  if (role === 'novo_colaborador') chaves.push('mentorados');
+  if (role === 'mentor') chaves.push('colaboradores');
   if (await temAtribuicaoActiva(utilizadorId)) chaves.push('mentores');
   for (const chave of chaves) {
     await sql`
@@ -446,16 +497,7 @@ export async function actualizarGrupo(grupoId: string, body: Record<string, unkn
         throw new ErroAcesso('O grupo DEV tem de ficar com pelo menos uma conta.', 409);
       }
     }
-    await sql.begin(async (tx) => {
-      await tx`DELETE FROM grupo_utilizador WHERE grupo_id = ${grupoId}`;
-      for (const id of ids) {
-        await tx`
-          INSERT INTO grupo_utilizador (grupo_id, utilizador_id)
-          SELECT ${grupoId}, id FROM utilizadores WHERE id = ${id}
-          ON CONFLICT DO NOTHING
-        `;
-      }
-    });
+    await substituirMembros(grupoId, ids);
   }
 
   if (body.acesso_ids !== undefined) {
@@ -466,17 +508,37 @@ export async function actualizarGrupo(grupoId: string, body: Record<string, unkn
     const finais = String(grupo.chave) === 'dev'
       ? [...new Set([...ids, ...sistemaIds])]
       : ids.filter((id) => !sistemaIds.includes(id));
-    await sql.begin(async (tx) => {
-      await tx`DELETE FROM grupo_acesso WHERE grupo_id = ${grupoId}`;
-      for (const id of finais) {
-        await tx`
-          INSERT INTO grupo_acesso (grupo_id, acesso_id)
-          SELECT ${grupoId}, id FROM acesso WHERE id = ${id}
-          ON CONFLICT DO NOTHING
-        `;
-      }
-    });
+    await substituirPaginas(grupoId, finais);
   }
+}
+
+/** Duas instruções em conjunto. Um insert por linha, dentro da transacção, excedia o tempo em grupos grandes e o browser ficava sem resposta. */
+async function substituirMembros(grupoId: string, ids: string[]): Promise<void> {
+  await sql.begin(async (tx) => {
+    await tx`DELETE FROM grupo_utilizador WHERE grupo_id = ${grupoId}`;
+    if (!ids.length) return;
+    await tx`
+      INSERT INTO grupo_utilizador (grupo_id, utilizador_id)
+      SELECT ${grupoId}, u.id
+        FROM utilizadores u
+       WHERE u.id = ANY(${ids}::uuid[])
+      ON CONFLICT DO NOTHING
+    `;
+  });
+}
+
+async function substituirPaginas(grupoId: string, ids: string[]): Promise<void> {
+  await sql.begin(async (tx) => {
+    await tx`DELETE FROM grupo_acesso WHERE grupo_id = ${grupoId}`;
+    if (!ids.length) return;
+    await tx`
+      INSERT INTO grupo_acesso (grupo_id, acesso_id)
+      SELECT ${grupoId}, a.id
+        FROM acesso a
+       WHERE a.id = ANY(${ids}::uuid[])
+      ON CONFLICT DO NOTHING
+    `;
+  });
 }
 
 export async function apagarGrupo(grupoId: string): Promise<void> {

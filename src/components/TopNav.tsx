@@ -13,11 +13,13 @@ import { PesquisaPessoas } from '@/src/components/PesquisaPessoas';
 import { alternarTema, temaActual } from '@/src/lib/tema';
 import { ROUTES } from '@/lib/constants';
 
-const ROLE_LABEL: Record<string, string> = {
-  rh_admin: 'Administrador DPC',
-  mentor: 'Mentor',
-  novo_colaborador: 'Colaborador',
-};
+/** Função e departamento. O papel de mentor não aparece neste canto. */
+function linhaCargo(funcao?: string | null, departamento?: string | null, role?: string): string {
+  const partes = [funcao, departamento].map((valor) => valor?.trim()).filter((valor): valor is string => !!valor);
+  if (partes.length) return partes.join(' · ');
+  if (role === 'rh_admin') return 'Administrador DPC';
+  return 'Colaborador';
+}
 
 /** Cor da barra de topo (verde Pumangol). */
 export const TOPBAR_BG = '#1A5334';
@@ -92,9 +94,7 @@ export function TopNav() {
   const userName = user?.nome ?? 'Admin DPC';
   const userEmail = user?.email ?? 'admin@pumangol.ao';
   const userRole = user?.role ?? 'rh_admin';
-  const roleLabel = (ROLE_LABEL[userRole] ?? userRole)
-    + (userRole === 'rh_admin' && user?.is_mentor ? ' · Mentor' : '')
-    + (user?.is_dev ? ' · DEV' : '');
+  const roleLabel = linhaCargo(user?.funcao, user?.departamento, userRole);
   const assistenteHref = ROUTES.ASSISTENTE;
 
   return (
@@ -198,18 +198,18 @@ export function TopNav() {
             <Avatar name={userName} src={user?.foto_url} size="sm" />
             <span className="hidden xl:block text-left leading-tight">
               <span className="block text-sm font-bold text-white">{userName}</span>
-              <span className="block text-xs text-white/80">{roleLabel}</span>
+              <span className="block max-w-[16rem] truncate text-xs text-white/80">{roleLabel}</span>
             </span>
           </button>
 
           {userMenuOpen && (
             <>
               <div className="fixed inset-0 z-10" onClick={() => setUserMenuOpen(false)} />
-              <div className="absolute right-0 top-full mt-2 z-20 bg-white text-foreground rounded-xl shadow-float border border-border py-2 w-60">
+              <div className="absolute right-0 top-full mt-2 z-20 bg-white text-foreground rounded-xl shadow-float border border-border py-2 w-72">
                 <div className="px-4 py-2 border-b border-border">
                   <p className="text-sm font-semibold text-foreground">{userName}</p>
                   <p className="text-xs text-muted-foreground">{userEmail}</p>
-                  <span className="inline-block mt-1 text-[11px] font-medium bg-navy-50 text-navy-700 rounded-full px-2 py-0.5">
+                  <span className="mt-1 inline-block max-w-full rounded-full bg-navy-50 px-2 py-0.5 text-[11px] font-medium leading-snug text-navy-700">
                     {roleLabel}
                   </span>
                 </div>

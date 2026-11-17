@@ -21,6 +21,7 @@ const colaborador: UserRole[] = ['novo_colaborador', 'rh_admin'];
 /** Catálogo das páginas do menu. A sincronização na API faz o upsert para `acesso`. */
 export const PAGINAS: PaginaCatalogo[] = [
   { chave: 'inicio', nome: 'Início', rota: '/inicio', modulo: 'Geral', perfis: todos, ordem: 10 },
+  { chave: 'noticias', nome: 'Notícias', rota: '/noticias', modulo: 'Geral', perfis: todos, ordem: 15 },
   { chave: 'eventos', nome: 'Eventos', rota: '/eventos', modulo: 'Geral', perfis: todos, ordem: 20 },
   { chave: 'reconhecimento', nome: 'Reconhecimento', rota: '/reconhecimento', modulo: 'Geral', perfis: todos, ordem: 30 },
   { chave: 'meu-perfil', nome: 'O meu perfil', rota: '/meu-perfil', modulo: 'Geral', perfis: todos, ordem: 40 },
@@ -32,6 +33,7 @@ export const PAGINAS: PaginaCatalogo[] = [
   { chave: 'admissao', nome: 'Processos', rota: '/admissao', modulo: 'Admissão', perfis: admin, ordem: 210 },
 
   { chave: 'onboarding', nome: 'Novos Colaboradores', rota: '/onboarding', modulo: 'Onboarding', perfis: admin, ordem: 310 },
+  { chave: 'colaboradores', nome: 'Colaboradores', rota: '/colaboradores', modulo: 'Onboarding', perfis: admin, ordem: 315 },
   { chave: 'fichas', nome: 'Fichas do Colaborador', rota: '/onboarding/fichas', modulo: 'Onboarding', perfis: admin, ordem: 320 },
   { chave: 'trilhos', nome: 'Trilhos', rota: '/onboarding/trilhos', modulo: 'Onboarding', perfis: admin, ordem: 330 },
   { chave: 'catalogos', nome: 'Funções, direcções e categorias', rota: '/onboarding/catalogos', modulo: 'Onboarding', perfis: admin, ordem: 340 },
@@ -41,7 +43,7 @@ export const PAGINAS: PaginaCatalogo[] = [
   { chave: 'documentos-empresa', nome: 'Documentos da Empresa', rota: '/onboarding/documentos', modulo: 'Onboarding', perfis: admin, ordem: 380 },
   { chave: 'documentos-exigidos', nome: 'Documentos Exigidos', rota: '/onboarding/documentos-exigidos', modulo: 'Onboarding', perfis: admin, ordem: 390 },
 
-  { chave: 'mentores', nome: 'Colaboradores', rota: '/mentores', modulo: 'Mentoria', perfis: admin, ordem: 410 },
+  { chave: 'mentores', nome: 'Mentores', rota: '/mentores', modulo: 'Mentoria', perfis: admin, ordem: 410 },
   { chave: 'centro-avaliacoes', nome: 'Centro de Avaliações', rota: '/avaliacoes', modulo: 'Mentoria', perfis: admin, ordem: 420 },
   { chave: 'comparacao-360', nome: 'Comparação 360°', rota: '/comparacao-360', modulo: 'Mentoria', perfis: admin, ordem: 430 },
 

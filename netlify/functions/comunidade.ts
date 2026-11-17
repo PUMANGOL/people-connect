@@ -73,7 +73,7 @@ async function notificarNovaPublicacao(postId: string, autorId: string, titulo: 
       SELECT u.id, u.perfil::text, 'comunidade_publicacao',
              ${'Nova publicação na comunidade'},
              ${'Nova publicação: ' + resumo(titulo || conteudo)},
-             ${'/inicio/publicacao/' + postId}
+             ${'/noticias/publicacao/' + postId}
         FROM utilizadores u
        WHERE u.estado = 'activo' AND u.id <> ${autorId}
     `;
@@ -90,7 +90,7 @@ async function notificarComentario(postId: string, autor: { id: string; nome: st
       SELECT u.id, u.perfil::text, 'comunidade_comentario',
              ${'Novo comentário na comunidade'},
              ${autor.nome + ' comentou: ' + resumo(conteudo, 100)},
-             ${'/inicio/publicacao/' + postId}
+             ${'/noticias/publicacao/' + postId}
         FROM utilizadores u
        WHERE u.estado = 'activo'
          AND u.id <> ${autor.id}

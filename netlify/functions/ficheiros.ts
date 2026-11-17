@@ -31,6 +31,7 @@ export default async (req: Request): Promise<Response> => {
       const finalidade = body.finalidade as Finalidade;
       const tipo = typeof body.tipo === 'string' ? body.tipo : '';
       const tamanho = Number(body.tamanho);
+      if (finalidade === 'capa') return errorResponse('A capa do perfil é fixa.', 400);
       if (!FINALIDADES.includes(finalidade)) return errorResponse('Finalidade inválida', 400);
       validarFicheiro(finalidade, tipo, tamanho);
 

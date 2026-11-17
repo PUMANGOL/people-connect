@@ -6,8 +6,9 @@ import {
 import { Avatar } from '@/src/components/ui/badge';
 import { ArvoreEstrutura, ListaColegas, temEstrutura } from '@/src/components/EstruturaOrganica';
 import { SkeletonCard } from '@/src/components/ui/skeleton';
+import { CAPA_PERFIL } from '@/lib/constants';
 import { cn, formatDate, formatRelativeTime } from '@/lib/utils';
-import { pessoasService, PERFIL_LABEL, type PessoaPerfil } from '@/src/services/pessoas.service';
+import { pessoasService, rotuloPessoa, type PessoaPerfil } from '@/src/services/pessoas.service';
 import { DISPONIBILIDADE } from '@/src/services/perfil.service';
 
 /** Texto simples a partir do HTML das publicações (só para pré-visualização). */
@@ -94,7 +95,7 @@ export default function PerfilPage() {
       {/* Cabeçalho do perfil */}
       <div className="overflow-hidden rounded-xl border border-navy-100 bg-white">
         <div className="h-28 bg-navy-800 sm:h-36">
-          {perfil.capa_url && <img src={perfil.capa_url} alt="" className="h-full w-full object-cover" />}
+          <img src={CAPA_PERFIL} alt="" className="h-full w-full object-cover object-center" />
         </div>
         <div className="px-6 pb-6">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-end">
@@ -108,7 +109,7 @@ export default function PerfilPage() {
               <h1 className="text-2xl font-bold text-navy-900">{perfil.nome}</h1>
               <div className="mt-1.5 flex flex-wrap items-center gap-2">
                 <span className="rounded-full bg-navy-50 px-2.5 py-0.5 text-xs font-semibold text-navy-700">
-                  {PERFIL_LABEL[perfil.perfil] ?? perfil.perfil}
+                  {rotuloPessoa(perfil.perfil, perfil.e_mentor)}
                 </span>
                 {perfil.funcao && <span className="text-sm text-navy-500">{perfil.funcao}</span>}
                 {perfil.disponibilidade && (
@@ -211,7 +212,7 @@ export default function PerfilPage() {
             <ul className="divide-y divide-navy-50">
               {perfil.actividade.map((a, i) => (
                 <li key={`${a.tipo}-${a.post_id}-${i}`}>
-                  <Link to={`/inicio/publicacao/${a.post_id}`} className="-mx-2 flex items-start gap-3 rounded-md px-2 py-3 hover:bg-navy-50">
+                  <Link to={`/noticias/publicacao/${a.post_id}`} className="-mx-2 flex items-start gap-3 rounded-md px-2 py-3 hover:bg-navy-50">
                     {a.tipo === 'publicacao'
                       ? <Megaphone className="mt-0.5 h-4 w-4 shrink-0 text-gold-600" />
                       : <MessageCircle className="mt-0.5 h-4 w-4 shrink-0 text-navy-400" />}
