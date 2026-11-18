@@ -36,6 +36,7 @@ const ADMIN_NAV: NavGroup[] = [
       { name: 'Eventos', href: '/eventos', icon: CalendarDays },
       { name: 'Reconhecimento', href: '/reconhecimento', icon: Award },
       { name: 'O meu perfil', href: '/meu-perfil', icon: UserRound },
+      { name: 'Políticas e Procedimentos', href: '/politicas', icon: FolderOpen },
       { name: 'Dashboard', href: '/', icon: LayoutDashboard },
     ],
   },
@@ -63,7 +64,6 @@ const ADMIN_NAV: NavGroup[] = [
       { name: 'Quiz de Boas-Vindas', href: '/onboarding/quiz', icon: HelpCircle },
       { name: 'Vídeos de Boas-Vindas', href: '/onboarding/videos', icon: Video },
       { name: 'Dashboard de Evolução', href: '/onboarding/evolucao', icon: TrendingUp },
-      { name: 'Documentos da Empresa', href: '/onboarding/documentos', icon: FolderOpen },
       { name: 'Documentos Exigidos', href: '/onboarding/documentos-exigidos', icon: ClipboardCheck },
     ],
   },
@@ -92,6 +92,7 @@ const MENTOR_NAV: NavGroup[] = [
       { name: 'Eventos', href: '/eventos', icon: CalendarDays },
       { name: 'Reconhecimento', href: '/reconhecimento', icon: Award },
       { name: 'O meu perfil', href: '/meu-perfil', icon: UserRound },
+      { name: 'Políticas e Procedimentos', href: '/politicas', icon: FolderOpen },
     ],
   },
   {
@@ -125,6 +126,7 @@ const COLABORADOR_NAV: NavGroup[] = [
       { name: 'Eventos', href: '/eventos', icon: CalendarDays },
       { name: 'Reconhecimento', href: '/reconhecimento', icon: Award },
       { name: 'O meu perfil', href: '/meu-perfil', icon: UserRound },
+      { name: 'Políticas e Procedimentos', href: '/politicas', icon: FolderOpen },
     ],
   },
   {
@@ -136,7 +138,6 @@ const COLABORADOR_NAV: NavGroup[] = [
       { name: 'Assistente Virtual', href: '/assistente', icon: Bot },
       { name: 'Comentários do Mentor', href: '/colaborador/comentarios', icon: MessageSquare },
       { name: 'Feedback / Auto-avaliação', href: '/colaborador/feedback', icon: ClipboardEdit },
-      { name: 'Documentos da Empresa', href: '/colaborador/documentos', icon: FolderOpen },
       { name: 'Submissão de Documentos', href: '/colaborador/submissoes', icon: UploadCloud },
     ],
   },
@@ -165,6 +166,10 @@ function menuDosGrupos(paginas: PaginaVisivel[] | undefined): NavGroup[] {
     if (!visiveis.has(pagina.rota)) continue;
     const actual = porModulo.get(pagina.modulo) ?? { ordem: pagina.ordem, items: [] };
     actual.ordem = Math.min(actual.ordem, pagina.ordem);
+    if (actual.items.some((item) => item.href === pagina.rota)) {
+      porModulo.set(pagina.modulo, actual);
+      continue;
+    }
     actual.items.push({
       name: pagina.nome,
       href: pagina.rota,

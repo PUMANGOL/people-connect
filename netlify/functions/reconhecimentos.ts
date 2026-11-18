@@ -13,24 +13,22 @@ import { directoresDe, pessoasOrg } from './_shared/estrutura';
  */
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-const VALORES = ['seguranca', 'cliente', 'equipa', 'inovacao', 'integridade'] as const;
-type Valor = (typeof VALORES)[number];
-
-const NOME_VALOR: Record<Valor, string> = {
-  seguranca: 'Segurança em primeiro',
-  cliente: 'Foco no cliente',
-  equipa: 'Espírito de equipa',
-  inovacao: 'Inovação',
-  integridade: 'Integridade',
-};
+const TONS = ['navy', 'info', 'gold', 'warning', 'red', 'success'] as const;
 
 function resumo(texto: string, max = 120): string {
   const limpo = texto.replace(/\s+/g, ' ').trim();
   return limpo.length > max ? `${limpo.slice(0, max - 1)}…` : limpo;
 }
 
-function valorValido(v: unknown): v is Valor {
-  return typeof v === 'string' && (VALORES as readonly string[]).includes(v);
+function slugValor(nome: string): string {
+  const base = nome
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '_')
+    .replace(/^_+|_+$/g, '')
+    .slice(0, 40);
+  return base || 'valor';
 }
 
 export default async (req: Request): Promise<Response> => {
@@ -46,6 +44,13 @@ export default async (req: Request): Promise<Response> => {
     const user = await requireAuth(req);
 
     if (req.method === 'GET' && !id) return jsonResponse({ data: await painel(user.id) });
+
+    if (req.method === 'GET' && id === 'pessoas') return jsonResponse({ data: await pessoasParaReconhecer() });
+
+    if (id === 'valores') {
+      if (req.method === 'GET') return jsonResponse({ data: await listarValores() });
+      if (req.method === 'POST') return criarValor(req, user);
+    }
 
     if (req.method === 'POST' && !id) return publicar(req, user);
 
@@ -112,17 +117,18 @@ async function painel(utilizadorId: string) {
     FROM reconhecimentos
   `;
 
-  const porValorRows = await sql<{ valor: Valor; n: number }[]>`
-    SELECT valor, COUNT(*)::int AS n
-      FROM reconhecimentos
-     WHERE visibilidade = 'publico'
-       AND created_at >= date_trunc('month', now())
-     GROUP BY valor
+  const porValor = await sql<{ valor: string; n: number }[]>`
+    SELECT v.chave AS valor, COALESCE(c.n, 0)::int AS n
+      FROM reconhecimento_valores v
+      LEFT JOIN (
+        SELECT valor, COUNT(*)::int AS n
+          FROM reconhecimentos
+         WHERE visibilidade = 'publico'
+           AND created_at >= date_trunc('month', now())
+         GROUP BY valor
+      ) c ON c.valor = v.chave
+     ORDER BY v.ordem, v.nome
   `;
-  const porValor = VALORES.map((valor) => ({
-    valor,
-    n: porValorRows.find((row) => row.valor === valor)?.n ?? 0,
-  }));
 
   const equipas = await sql`
     SELECT COALESCE(NULLIF(btrim(p.unidade), ''), p.direccao) AS nome,
@@ -181,7 +187,7 @@ async function painel(utilizadorId: string) {
     votos = Number(voto?.votos ?? 0);
   }
 
-  const badges = await sql<{ valor: Valor; vezes: number }[]>`
+  const badges = await sql<{ valor: string; vezes: number }[]>`
     SELECT valor, COUNT(*)::int AS vezes
       FROM reconhecimentos
      WHERE destinatario_id = ${utilizadorId}
@@ -237,7 +243,11 @@ async function publicar(req: Request, user: AuthUser) {
   const mensagem = typeof body?.mensagem === 'string' ? body.mensagem.trim() : '';
   if (mensagem.length < 12) return errorResponse('Conta o que aconteceu. Uma frase concreta chega.', 400);
   if (mensagem.length > 2000) return errorResponse('A mensagem é demasiado longa.', 400);
-  if (!valorValido(body?.valor)) return errorResponse('Escolhe um valor.', 400);
+  const chaveValor = typeof body?.valor === 'string' ? body.valor : '';
+  const [valorRow] = await sql<{ nome: string }[]>`
+    SELECT nome FROM reconhecimento_valores WHERE chave = ${chaveValor} LIMIT 1
+  `;
+  if (!valorRow) return errorResponse('Escolhe um valor.', 400);
   const visibilidade = body?.visibilidade === 'privado' ? 'privado' : body?.visibilidade === 'publico' ? 'publico' : null;
   if (!visibilidade) return errorResponse('Escolhe se o reconhecimento é público ou privado.', 400);
 
@@ -246,7 +256,7 @@ async function publicar(req: Request, user: AuthUser) {
   if (typeof body?.destinatarioId === 'string' && body.destinatarioId) {
     if (!UUID_RE.test(body.destinatarioId)) return errorResponse('Pessoa não encontrada.', 400);
     const pessoas = await sql`
-      SELECT id, nome FROM utilizadores WHERE id = ${body.destinatarioId} AND estado = 'activo' LIMIT 1
+      SELECT id, nome FROM utilizadores WHERE id = ${body.destinatarioId} LIMIT 1
     `;
     if (!pessoas.length) return errorResponse('Pessoa não encontrada.', 400);
     if (pessoas[0].id === user.id) return errorResponse('Escolhe outra pessoa.', 400);
@@ -263,14 +273,14 @@ async function publicar(req: Request, user: AuthUser) {
     INSERT INTO reconhecimentos (
       autor_id, destinatario_id, destinatario_nome, valor, mensagem, visibilidade, informar_chefe, direccao, posto
     ) VALUES (
-      ${user.id}, ${destinatarioId}, ${destinatarioNome}, ${body.valor}, ${mensagem}, ${visibilidade},
+      ${user.id}, ${destinatarioId}, ${destinatarioNome}, ${chaveValor}, ${mensagem}, ${visibilidade},
       ${directores.length > 0}, ${user.departamento ?? null}, ${posto}
     )
     RETURNING id
   `;
   const id = rows[0].id as string;
   const directoresInformados = directores.length
-    ? await informarDirectores(id, directores, `${user.nome} reconheceu ${destinatarioNome} (${NOME_VALOR[body.valor as Valor]}): ${resumo(mensagem, 100)}`)
+    ? await informarDirectores(id, directores, `${user.nome} reconheceu ${destinatarioNome} (${valorRow.nome}): ${resumo(mensagem, 100)}`)
     : 0;
   return jsonResponse({ data: { id, directoresInformados } }, 201);
 }
@@ -363,10 +373,98 @@ async function votar(req: Request, eleitorId: string) {
   return jsonResponse({ data: { ok: true } });
 }
 
+async function listarValores() {
+  return sql`
+    SELECT chave, nome, curto, tom
+      FROM reconhecimento_valores
+     ORDER BY ordem, nome
+  `;
+}
+
+async function criarValor(req: Request, user: AuthUser) {
+  if (user.role !== 'rh_admin') return errorResponse('Sem permissão', 403);
+  const body = await req.json().catch(() => ({}));
+  const nome = typeof body?.nome === 'string' ? body.nome.replace(/\s+/g, ' ').trim() : '';
+  if (nome.length < 2 || nome.length > 60) {
+    return errorResponse('O nome do valor deve ter entre 2 e 60 caracteres.', 400);
+  }
+  let curto = typeof body?.curto === 'string' ? body.curto.replace(/\s+/g, ' ').trim() : '';
+  if (!curto) curto = nome.length > 18 ? nome.slice(0, 18).trim() : nome;
+  if (curto.length < 2 || curto.length > 24) {
+    return errorResponse('O nome curto deve ter entre 2 e 24 caracteres.', 400);
+  }
+
+  const base = slugValor(nome);
+  let chave = base;
+  for (let i = 2; i < 50; i++) {
+    const existe = await sql`SELECT 1 FROM reconhecimento_valores WHERE chave = ${chave} LIMIT 1`;
+    if (!existe.length) break;
+    chave = `${base}_${i}`.slice(0, 48);
+  }
+  const [{ n }] = await sql<{ n: number }[]>`SELECT COUNT(*)::int AS n FROM reconhecimento_valores`;
+  const tom = TONS[Number(n) % TONS.length];
+  try {
+    const rows = await sql`
+      INSERT INTO reconhecimento_valores (chave, nome, curto, tom, ordem)
+      VALUES (${chave}, ${nome}, ${curto}, ${tom}, ${Number(n) + 1})
+      RETURNING chave, nome, curto, tom
+    `;
+    return jsonResponse({ data: rows[0] }, 201);
+  } catch (err) {
+    console.error('[reconhecimentos] criar valor', err);
+    return errorResponse('Não foi possível criar este valor.', 409);
+  }
+}
+
+/** «Para quem»: directório de mentores (mesmo inactivos), colaboradores e qualquer conta. */
+async function pessoasParaReconhecer() {
+  return sql`
+    SELECT id, utilizador_id, nome, funcao, departamento
+      FROM (
+        SELECT DISTINCT ON (chave)
+               id, utilizador_id, nome, funcao, departamento
+          FROM (
+            SELECT m.id::text AS id,
+                   m.utilizador_id::text AS utilizador_id,
+                   COALESCE(NULLIF(btrim(m.nome), ''), u.nome) AS nome,
+                   NULLIF(btrim(m.funcao), '') AS funcao,
+                   COALESCE(NULLIF(btrim(m.departamento), ''), NULLIF(btrim(u.departamento), '')) AS departamento,
+                   COALESCE(m.utilizador_id::text, 'mentor:' || m.id::text) AS chave,
+                   1 AS prioridade
+              FROM mentors m
+              LEFT JOIN utilizadores u ON u.id = m.utilizador_id
+            UNION ALL
+            SELECT c.id::text,
+                   c.utilizador_id::text,
+                   c.nome,
+                   NULLIF(btrim(c.funcao), ''),
+                   NULLIF(btrim(c.direccao), ''),
+                   COALESCE(c.utilizador_id::text, 'colaborador:' || c.id::text),
+                   2
+              FROM colaboradores c
+            UNION ALL
+            SELECT u.id::text,
+                   u.id::text,
+                   u.nome,
+                   NULL,
+                   NULLIF(btrim(u.departamento), ''),
+                   u.id::text,
+                   3
+              FROM utilizadores u
+          ) origem
+         WHERE nome IS NOT NULL AND btrim(nome) <> ''
+         ORDER BY chave, prioridade
+      ) pessoas
+     ORDER BY nome
+  `;
+}
+
 export const config: Config = {
   path: [
     '/api/reconhecimentos',
     '/api/reconhecimentos/voto',
+    '/api/reconhecimentos/pessoas',
+    '/api/reconhecimentos/valores',
     '/api/reconhecimentos/:id/aplauso',
     '/api/reconhecimentos/:id/comentarios',
   ],

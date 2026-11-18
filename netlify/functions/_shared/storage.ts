@@ -27,7 +27,7 @@ const DOCUMENTOS = [
   'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
 ];
 
-export type Finalidade = 'foto' | 'capa' | 'documento' | 'publicacao' | 'admissao';
+export type Finalidade = 'foto' | 'capa' | 'documento' | 'publicacao' | 'admissao' | 'submissao' | 'empresa';
 
 export const ID_FICHEIRO = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -37,6 +37,8 @@ export const REGRAS: Record<Finalidade, { tipos: string[]; max: number; descrica
   publicacao: { tipos: IMAGENS, max: 8 * MB, descricao: 'JPG, PNG ou WEBP até 8 MB' },
   admissao: { tipos: [...IMAGENS, 'application/pdf'], max: 8 * MB, descricao: 'PDF, JPG, PNG ou WEBP até 8 MB' },
   documento: { tipos: DOCUMENTOS, max: 15 * MB, descricao: 'PDF, imagem, Word ou Excel até 15 MB' },
+  submissao: { tipos: DOCUMENTOS, max: 15 * MB, descricao: 'PDF, imagem, Word ou Excel até 15 MB' },
+  empresa: { tipos: DOCUMENTOS, max: 15 * MB, descricao: 'PDF, imagem, Word ou Excel até 15 MB' },
 };
 
 export class StorageError extends Error {

@@ -551,7 +551,7 @@ export default function ColaboradorProgressoPage() {
           )}
         </div>
         <p className="mb-4 text-xs text-navy-500">
-          O colaborador marca aqui os documentos que já entregou por email ou fisicamente. Não há upload de ficheiros.
+          O colaborador confirma os documentos que já entregou e pode carregar o ficheiro. Esta lista é só de consulta.
         </p>
         {submissoes.length === 0 ? (
           <p className="text-sm text-navy-400">Sem documentos exigidos configurados.</p>

@@ -1,7 +1,7 @@
 import { apiClient } from './api.client';
 import { ErroVisivel } from '@/src/lib/erro-pedido';
 
-export type FinalidadeFicheiro = 'foto' | 'capa' | 'documento' | 'publicacao';
+export type FinalidadeFicheiro = 'foto' | 'capa' | 'documento' | 'publicacao' | 'submissao' | 'empresa';
 
 const MB = 1024 * 1024;
 const IMAGENS = ['image/jpeg', 'image/png', 'image/webp'];
@@ -24,6 +24,18 @@ export const REGRAS_FICHEIRO: Record<FinalidadeFicheiro, { tipos: string[]; max:
   capa: { tipos: IMAGENS, max: 8 * MB, aceitar: IMAGENS.join(','), descricao: 'JPG, PNG ou WEBP até 8 MB' },
   publicacao: { tipos: IMAGENS, max: 8 * MB, aceitar: IMAGENS.join(','), descricao: 'JPG, PNG ou WEBP até 8 MB' },
   documento: {
+    tipos: Object.values(TIPO_POR_EXTENSAO),
+    max: 15 * MB,
+    aceitar: '.pdf,.jpg,.jpeg,.png,.webp,.doc,.docx,.xls,.xlsx',
+    descricao: 'PDF, imagem, Word ou Excel até 15 MB',
+  },
+  submissao: {
+    tipos: Object.values(TIPO_POR_EXTENSAO),
+    max: 15 * MB,
+    aceitar: '.pdf,.jpg,.jpeg,.png,.webp,.doc,.docx,.xls,.xlsx',
+    descricao: 'PDF, imagem, Word ou Excel até 15 MB',
+  },
+  empresa: {
     tipos: Object.values(TIPO_POR_EXTENSAO),
     max: 15 * MB,
     aceitar: '.pdf,.jpg,.jpeg,.png,.webp,.doc,.docx,.xls,.xlsx',

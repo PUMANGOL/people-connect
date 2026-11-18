@@ -1,6 +1,7 @@
 import type { Config } from './_shared/route-config';
 import { sql, jsonResponse, errorResponse, handleCors, publicErrorMessage } from './_shared/db';
 import { requireAuth, authErrorResponse, AuthError } from './_shared/auth';
+import { apagarObjecto, confirmarEnvio, StorageError } from './_shared/storage';
 
 /**
  * Confirmação de Submissões (EPIC 3.4 — revisto).
@@ -29,7 +30,7 @@ async function checklistDe(colaboradorId: string) {
   return sql`
     SELECT d.id AS documento_exigido_id, d.nome, d.descricao, d.obrigatorio, d.ordem,
            s.id AS submissao_id, COALESCE(s.estado, 'pendente') AS estado,
-           s.ficheiro_nome, s.motivo_rejeicao, s.submetido_em, s.avaliado_em
+           s.ficheiro_ref, s.ficheiro_nome, s.motivo_rejeicao, s.submetido_em, s.avaliado_em
     FROM documentos_exigidos d
     LEFT JOIN submissoes_documentos s
       ON s.documento_exigido_id = d.id AND s.colaborador_id = ${colaboradorId}
@@ -66,7 +67,7 @@ export default async (req: Request): Promise<Response> => {
       return jsonResponse({ data: rows });
     }
 
-    // Colaborador: confirmar submissão (checkbox — sem upload de ficheiro)
+    // Colaborador: confirma a entrega e, se vier um ficheiro, guarda-o.
     if (req.method === 'POST') {
       const colaboradorId = await colaboradorDoUtilizador(user.id);
       if (!colaboradorId) return errorResponse('Conta sem registo de colaborador associado', 400);
@@ -74,20 +75,46 @@ export default async (req: Request): Promise<Response> => {
       const documentoExigidoId = body.documento_exigido_id;
       if (!documentoExigidoId) return errorResponse('documento_exigido_id em falta', 400);
 
-      const rows = await sql`
-        INSERT INTO submissoes_documentos
-          (colaborador_id, documento_exigido_id, estado, submetido_em)
-        VALUES
-          (${colaboradorId}, ${documentoExigidoId}, 'submetido', NOW())
-        ON CONFLICT (colaborador_id, documento_exigido_id) DO UPDATE SET
-          estado = 'submetido',
-          ficheiro_ref = NULL,
-          ficheiro_nome = NULL,
-          motivo_rejeicao = NULL,
-          submetido_em = NOW(),
-          avaliado_em = NULL
-        RETURNING *
+      const ficheiroId = typeof body.ficheiro_id === 'string' ? body.ficheiro_id : '';
+      const ficheiroNome = typeof body.nome === 'string' ? body.nome.trim().slice(0, 180) : '';
+      if (ficheiroId) {
+        await confirmarEnvio('submissao', ficheiroId, `submissoes/${user.id}`, user.id);
+        if (!ficheiroNome) return errorResponse('Indica o nome do ficheiro.', 400);
+      }
+
+      const anterior = await sql`
+        SELECT ficheiro_ref FROM submissoes_documentos
+         WHERE colaborador_id = ${colaboradorId} AND documento_exigido_id = ${documentoExigidoId}
       `;
+      const rows = ficheiroId
+        ? await sql`
+            INSERT INTO submissoes_documentos
+              (colaborador_id, documento_exigido_id, estado, ficheiro_ref, ficheiro_nome, submetido_em)
+            VALUES
+              (${colaboradorId}, ${documentoExigidoId}, 'submetido', ${ficheiroId}, ${ficheiroNome}, NOW())
+            ON CONFLICT (colaborador_id, documento_exigido_id) DO UPDATE SET
+              estado = 'submetido',
+              ficheiro_ref = ${ficheiroId},
+              ficheiro_nome = ${ficheiroNome},
+              motivo_rejeicao = NULL,
+              submetido_em = NOW(),
+              avaliado_em = NULL
+            RETURNING *
+          `
+        : await sql`
+            INSERT INTO submissoes_documentos
+              (colaborador_id, documento_exigido_id, estado, submetido_em)
+            VALUES
+              (${colaboradorId}, ${documentoExigidoId}, 'submetido', NOW())
+            ON CONFLICT (colaborador_id, documento_exigido_id) DO UPDATE SET
+              estado = 'submetido',
+              motivo_rejeicao = NULL,
+              submetido_em = NOW(),
+              avaliado_em = NULL
+            RETURNING *
+          `;
+      const antigo = anterior[0]?.ficheiro_ref as string | undefined;
+      if (ficheiroId && antigo && antigo !== ficheiroId) await apagarObjecto(antigo);
       return jsonResponse({ data: rows[0] }, 201);
     }
 
@@ -98,9 +125,10 @@ export default async (req: Request): Promise<Response> => {
       const rows = await sql`
         DELETE FROM submissoes_documentos
         WHERE id = ${last} AND colaborador_id = ${colaboradorId}
-        RETURNING id
+        RETURNING id, ficheiro_ref
       `;
       if (!rows.length) return errorResponse('Confirmação não encontrada', 404);
+      await apagarObjecto(rows[0].ficheiro_ref as string | null);
       return jsonResponse({ data: { ok: true } });
     }
 
@@ -126,6 +154,7 @@ export default async (req: Request): Promise<Response> => {
     return errorResponse('Método não suportado', 405);
   } catch (err) {
     if (err instanceof AuthError) return authErrorResponse(err);
+    if (err instanceof StorageError) return errorResponse(err.message, err.status);
     console.error('[submissoes]', err);
     return errorResponse(publicErrorMessage(err, 'Erro interno'));
   }

@@ -1,18 +1,18 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
-  Award, ChevronLeft, ChevronRight, Eye, EyeOff, Heart, Lightbulb, Lock, MessageSquare, Scale, Send, ShieldCheck, Smile, Trophy, Users,
+  Award, ChevronLeft, ChevronRight, Eye, EyeOff, Heart, Lightbulb, Lock, MessageSquare, Plus, Scale, Send, ShieldCheck, Smile, Trophy, Users,
   type LucideIcon,
 } from 'lucide-react';
 import { getInitials, cn } from '@/lib/utils';
 import { useAuthStore } from '@/src/store/auth.store';
 import { toast } from '@/src/store/ui.store';
-import { mentorsService } from '@/src/services/mentoria.service';
-import type { Mentor } from '@/lib/types';
 import {
   reconhecimentosService,
+  type PessoaReconhecimento,
   type ReconhecimentoItem,
   type ReconhecimentoPainel,
   type ValorId,
+  type ValorReconhecimento,
 } from '@/src/services/reconhecimentos.service';
 import { Button } from '@/src/components/ui/button';
 import { Dialog } from '@/src/components/ui/dialog';
@@ -24,21 +24,57 @@ import { Palmas } from './palmas';
 
 type FiltroMural = 'todos' | 'direccao' | 'postos' | 'semana';
 
-const VALORES: {
-  id: ValorId;
+type CartaoValor = {
+  id: string;
   label: string;
   curto: string;
   cor: string;
   suave: string;
   activo: string;
   Icon: LucideIcon;
-}[] = [
-  { id: 'seguranca', label: 'Segurança em primeiro', curto: 'Segurança', cor: 'bg-navy-600', suave: 'bg-navy-50 text-navy-700', activo: 'border-navy-600 bg-navy-50 ring-navy-600', Icon: ShieldCheck },
-  { id: 'cliente', label: 'Foco no cliente', curto: 'Cliente', cor: 'bg-info-600', suave: 'bg-info-50 text-info-700', activo: 'border-info-600 bg-info-50 ring-info-600', Icon: Smile },
-  { id: 'equipa', label: 'Espírito de equipa', curto: 'Equipa', cor: 'bg-gold-500', suave: 'bg-gold-50 text-gold-700', activo: 'border-gold-500 bg-gold-50 ring-gold-500', Icon: Users },
-  { id: 'inovacao', label: 'Inovação', curto: 'Inovação', cor: 'bg-warning-500', suave: 'bg-warning-50 text-warning-700', activo: 'border-warning-500 bg-warning-50 ring-warning-500', Icon: Lightbulb },
-  { id: 'integridade', label: 'Integridade', curto: 'Integridade', cor: 'bg-brand-red-500', suave: 'bg-brand-red-50 text-brand-red-600', activo: 'border-brand-red-500 bg-brand-red-50 ring-brand-red-500', Icon: Scale },
+};
+
+const ESTILOS: Record<string, Pick<CartaoValor, 'cor' | 'suave' | 'activo'>> = {
+  navy: { cor: 'bg-navy-600', suave: 'bg-navy-50 text-navy-700', activo: 'border-navy-600 bg-navy-50 ring-navy-600' },
+  info: { cor: 'bg-info-600', suave: 'bg-info-50 text-info-700', activo: 'border-info-600 bg-info-50 ring-info-600' },
+  gold: { cor: 'bg-gold-500', suave: 'bg-gold-50 text-gold-700', activo: 'border-gold-500 bg-gold-50 ring-gold-500' },
+  warning: { cor: 'bg-warning-500', suave: 'bg-warning-50 text-warning-700', activo: 'border-warning-500 bg-warning-50 ring-warning-500' },
+  red: { cor: 'bg-brand-red-500', suave: 'bg-brand-red-50 text-brand-red-600', activo: 'border-brand-red-500 bg-brand-red-50 ring-brand-red-500' },
+  success: { cor: 'bg-success-600', suave: 'bg-success-50 text-success-700', activo: 'border-success-600 bg-success-50 ring-success-600' },
+};
+
+const ICONES: Record<string, LucideIcon> = {
+  seguranca: ShieldCheck,
+  cliente: Smile,
+  equipa: Users,
+  inovacao: Lightbulb,
+  integridade: Scale,
+  navy: ShieldCheck,
+  info: Smile,
+  gold: Users,
+  warning: Lightbulb,
+  red: Scale,
+  success: Heart,
+};
+
+const VALORES_BASE: ValorReconhecimento[] = [
+  { chave: 'seguranca', nome: 'Segurança em primeiro', curto: 'Segurança', tom: 'navy' },
+  { chave: 'cliente', nome: 'Foco no cliente', curto: 'Cliente', tom: 'info' },
+  { chave: 'equipa', nome: 'Espírito de equipa', curto: 'Equipa', tom: 'gold' },
+  { chave: 'inovacao', nome: 'Inovação', curto: 'Inovação', tom: 'warning' },
+  { chave: 'integridade', nome: 'Integridade', curto: 'Integridade', tom: 'red' },
 ];
+
+function cartaoDe(v: ValorReconhecimento): CartaoValor {
+  const estilo = ESTILOS[v.tom] ?? ESTILOS.navy;
+  return {
+    id: v.chave,
+    label: v.nome,
+    curto: v.curto,
+    ...estilo,
+    Icon: ICONES[v.chave] ?? ICONES[v.tom] ?? Award,
+  };
+}
 
 const TONS_AVATAR = [
   'bg-navy-100 text-navy-800',
@@ -97,10 +133,6 @@ function erroPedido(e: unknown, fallback: string): { msg: string; jaNotificado: 
   return { msg, jaNotificado: status === 403 || status === 429 || (status != null && status >= 500) };
 }
 
-function valorDe(id: ValorId) {
-  return VALORES.find((v) => v.id === id) ?? VALORES[2];
-}
-
 export default function ReconhecimentoPage() {
   const eu = useAuthStore((s) => s.user);
   const [separador, setSeparador] = useState<'meus' | 'dar'>('dar');
@@ -108,7 +140,7 @@ export default function ReconhecimentoPage() {
   const [aCarregar, setACarregar] = useState(true);
   const [filtro, setFiltro] = useState<FiltroMural>('todos');
   const [formularioAberto, setFormularioAberto] = useState(false);
-  const [colaboradores, setColaboradores] = useState<Mentor[]>([]);
+  const [colaboradores, setColaboradores] = useState<PessoaReconhecimento[]>([]);
   const [aCarregarPessoas, setACarregarPessoas] = useState(true);
   const [destinatario, setDestinatario] = useState('');
   const [valor, setValor] = useState<ValorId>('equipa');
@@ -124,6 +156,13 @@ export default function ReconhecimentoPage() {
   const [falha, setFalha] = useState<string | null>(null);
   const [slide, setSlide] = useState(0);
   const [aplausosPendentes, setAplausosPendentes] = useState<Set<string>>(new Set());
+  const [catalogo, setCatalogo] = useState<ValorReconhecimento[]>(VALORES_BASE);
+  const [modalValor, setModalValor] = useState(false);
+  const [nomeValor, setNomeValor] = useState('');
+  const [curtoValor, setCurtoValor] = useState('');
+  const [aGuardarValor, setAGuardarValor] = useState(false);
+  const admin = eu?.role === 'rh_admin';
+  const valores = useMemo(() => catalogo.map(cartaoDe), [catalogo]);
 
   async function carregar(silencioso = false) {
     if (!silencioso) setACarregar(true);
@@ -145,8 +184,8 @@ export default function ReconhecimentoPage() {
 
   useEffect(() => {
     let vivo = true;
-    mentorsService.list(true)
-      .then((rows) => { if (vivo) setColaboradores(rows.filter((m) => m.activo !== false && m.nome)); })
+    reconhecimentosService.pessoas()
+      .then((rows) => { if (vivo) setColaboradores(rows.filter((m) => m.nome)); })
       .catch((e) => {
         if (!vivo) return;
         setColaboradores([]);
@@ -154,6 +193,18 @@ export default function ReconhecimentoPage() {
         if (!jaNotificado) toast.error('Colaboradores indisponíveis', 'Não foi possível carregar a lista para reconhecer.');
       })
       .finally(() => { if (vivo) setACarregarPessoas(false); });
+    return () => { vivo = false; };
+  }, []);
+
+  useEffect(() => {
+    let vivo = true;
+    reconhecimentosService.valores()
+      .then((rows) => { if (vivo && rows.length) setCatalogo(rows); })
+      .catch((e) => {
+        if (!vivo) return;
+        const { jaNotificado } = erroPedido(e, '');
+        if (!jaNotificado) toast.error('Valores indisponíveis', 'Não foi possível carregar o catálogo de valores.');
+      });
     return () => { vivo = false; };
   }, []);
 
@@ -186,11 +237,14 @@ export default function ReconhecimentoPage() {
 
   const visiveis = verMais ? mural : mural.slice(0, 4);
   const mes = new Date().toLocaleDateString('pt-PT', { month: 'long' });
-  const contagem = VALORES.map((v) => ({ ...v, n: painel?.porValor.find((p) => p.valor === v.id)?.n ?? 0 }))
+  const contagem = valores.map((v) => ({ ...v, n: painel?.porValor.find((p) => p.valor === v.id)?.n ?? 0 }))
     .sort((a, b) => b.n - a.n);
   const maisCelebrado = contagem[0];
   const vezes = (id: ValorId) => painel?.badges.find((b) => b.valor === id)?.vezes ?? 0;
-  const badgesGanhos = VALORES.filter((v) => vezes(v.id) > 0).length + (eu?.is_mentor ? 1 : 0);
+  const badgesGanhos = valores.filter((v) => vezes(v.id) > 0).length + (eu?.is_mentor ? 1 : 0);
+  function valorDe(id: ValorId) {
+    return valores.find((v) => v.id === id) ?? valores.find((v) => v.id === 'equipa') ?? valores[0];
+  }
   const delta = variacao(painel?.totalMes ?? 0, painel?.mesAnterior ?? 0);
   const pessoa = colaboradores.find((c) => c.id === destinatario);
   const caracteres = mensagem.trim().length;
@@ -216,6 +270,34 @@ export default function ReconhecimentoPage() {
   function mudarFiltro(id: FiltroMural) {
     setFiltro(id);
     setVerMais(false);
+  }
+
+  function abrirNovoValor() {
+    setNomeValor('');
+    setCurtoValor('');
+    setModalValor(true);
+  }
+
+  async function guardarValor() {
+    const nome = nomeValor.trim();
+    const curto = curtoValor.trim();
+    if (nome.length < 2) {
+      toast.error('Nome em falta', 'O valor precisa de um nome com pelo menos 2 caracteres.');
+      return;
+    }
+    setAGuardarValor(true);
+    try {
+      const criado = await reconhecimentosService.criarValor({ nome, curto: curto || undefined });
+      setCatalogo((lista) => lista.some((v) => v.chave === criado.chave) ? lista : [...lista, criado]);
+      setValor(criado.chave);
+      setModalValor(false);
+      toast.success('Valor criado', `${criado.nome} já aparece junto dos outros.`);
+    } catch (e) {
+      const { msg, jaNotificado } = erroPedido(e, 'Não foi possível criar o valor.');
+      if (!jaNotificado) toast.error('Valor por criar', msg);
+    } finally {
+      setAGuardarValor(false);
+    }
   }
 
   async function publicar() {
@@ -412,7 +494,7 @@ export default function ReconhecimentoPage() {
         <div className="space-y-6">
           <Dialog
             open={formularioAberto}
-            onClose={() => { if (!aPublicar) setFormularioAberto(false); }}
+            onClose={() => { if (!aPublicar && !modalValor) setFormularioAberto(false); }}
             className="max-w-3xl"
           >
             <h2 className="pr-8 font-heading text-xl font-semibold tracking-tight text-foreground">Novo reconhecimento</h2>
@@ -477,8 +559,8 @@ export default function ReconhecimentoPage() {
 
                 <div>
                   <p className="mb-2 text-sm font-medium text-navy-800">Que valor demonstrou</p>
-                  <div className="grid grid-cols-2 gap-2 sm:grid-cols-5" role="radiogroup" aria-label="Valor">
-                    {VALORES.map((v) => {
+                  <div className="grid grid-cols-2 gap-2 sm:grid-cols-3" role="radiogroup" aria-label="Valor">
+                    {valores.map((v) => {
                       const escolhido = valor === v.id;
                       return (
                         <button
@@ -500,6 +582,19 @@ export default function ReconhecimentoPage() {
                         </button>
                       );
                     })}
+                    {admin && (
+                      <button
+                        type="button"
+                        disabled={aPublicar}
+                        onClick={abrirNovoValor}
+                        className="flex flex-col items-start gap-2 rounded-lg border border-dashed border-navy-200 bg-white px-3 py-3 text-left text-navy-600 transition-colors hover:border-navy-400 hover:bg-neutral-50"
+                      >
+                        <span className="flex h-8 w-8 items-center justify-center rounded-md bg-navy-50 text-navy-700">
+                          <Plus className="h-4 w-4" />
+                        </span>
+                        <span className="text-xs font-medium leading-snug">Novo valor</span>
+                      </button>
+                    )}
                   </div>
                 </div>
 
@@ -840,20 +935,74 @@ export default function ReconhecimentoPage() {
               <section className="rounded-xl border border-navy-100 bg-white p-5 shadow-card">
                 <div className="flex items-baseline justify-between">
                   <h3 className="text-sm font-semibold text-navy-900">Os seus badges</h3>
-                  <span className="text-xs tabular-nums text-navy-400">{badgesGanhos} de {VALORES.length + 1}</span>
+                  <span className="text-xs tabular-nums text-navy-400">{badgesGanhos} de {valores.length + 1}</span>
                 </div>
                 <ul className="mt-4 grid grid-cols-3 gap-2">
-                  {VALORES.map((v) => {
+                  {valores.map((v) => {
                     const n = vezes(v.id);
                     return <Badge key={v.id} nome={v.curto} Icon={v.Icon} tom={v.suave} ganho={n > 0} vezes={n} />;
                   })}
                   <Badge nome="Mentor" Icon={Award} tom="bg-navy-50 text-navy-700" ganho={Boolean(eu?.is_mentor)} />
+                  {admin && (
+                    <li>
+                      <button
+                        type="button"
+                        onClick={abrirNovoValor}
+                        className="flex h-full w-full flex-col items-center gap-1.5 rounded-lg border border-dashed border-navy-200 bg-white px-1 py-2.5 text-center text-navy-600 hover:border-navy-400"
+                      >
+                        <span className="flex h-9 w-9 items-center justify-center rounded-full bg-navy-50 text-navy-700">
+                          <Plus className="h-4 w-4" />
+                        </span>
+                        <span className="text-[11px] font-medium leading-tight">Novo valor</span>
+                      </button>
+                    </li>
+                  )}
                 </ul>
               </section>
             </>
           )}
         </aside>
       </div>
+
+      <Dialog open={modalValor} onClose={() => { if (!aGuardarValor) setModalValor(false); }} className="max-w-md">
+        <h2 className="pr-8 font-heading text-xl font-semibold tracking-tight text-foreground">Novo valor</h2>
+        <p className="mt-1 text-sm text-muted-foreground">Fica no catálogo e aparece como cartão ao lado dos outros valores.</p>
+        <form
+          className="mt-6 space-y-4"
+          onSubmit={(e) => { e.preventDefault(); void guardarValor(); }}
+        >
+          <div>
+            <label className="mb-1.5 block text-sm font-medium text-navy-800" htmlFor="valor-nome">Nome</label>
+            <Input
+              id="valor-nome"
+              value={nomeValor}
+              disabled={aGuardarValor}
+              maxLength={60}
+              placeholder="Ex.: Colaboração"
+              onChange={(e) => setNomeValor(e.target.value)}
+            />
+          </div>
+          <div>
+            <label className="mb-1.5 block text-sm font-medium text-navy-800" htmlFor="valor-curto">Nome curto</label>
+            <Input
+              id="valor-curto"
+              value={curtoValor}
+              disabled={aGuardarValor}
+              maxLength={24}
+              placeholder="Opcional. Usado no badge."
+              onChange={(e) => setCurtoValor(e.target.value)}
+            />
+          </div>
+          <div className="flex justify-end gap-2 pt-2">
+            <Button type="button" variant="secondary" disabled={aGuardarValor} onClick={() => setModalValor(false)}>
+              Cancelar
+            </Button>
+            <Button type="submit" variant="accent" disabled={aGuardarValor || nomeValor.trim().length < 2}>
+              {aGuardarValor ? 'A guardar…' : 'Adicionar'}
+            </Button>
+          </div>
+        </form>
+      </Dialog>
     </div>
   );
 }

@@ -400,7 +400,7 @@ function VisaoGeral({ perfil, onEditar }: { perfil: MeuPerfil; onEditar: () => v
           {r.por_valor.length > 0 && (
             <ul className="mt-4 space-y-2.5">
               {r.por_valor.map((v) => {
-                const cfg = VALORES[v.valor] ?? VALORES.equipa;
+                const cfg = VALORES[v.valor] ?? { label: v.nome ?? v.valor, barra: 'bg-navy-600', suave: 'bg-navy-50 text-navy-700' };
                 return (
                   <li key={v.valor}>
                     <div className="flex justify-between text-xs">
@@ -487,7 +487,7 @@ function Reconhecimentos({ perfil }: { perfil: MeuPerfil }) {
       ) : (
         <ul className="divide-y divide-navy-50">
           {ultimos.map((r) => {
-            const cfg = VALORES[r.valor] ?? VALORES.equipa;
+            const cfg = VALORES[r.valor] ?? { label: r.valor_nome ?? r.valor, barra: 'bg-navy-600', suave: 'bg-navy-50 text-navy-700' };
             return (
               <li key={r.id} className="py-4 first:pt-0 last:pb-0">
                 <div className="flex flex-wrap items-center gap-2 text-xs">

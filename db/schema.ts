@@ -795,6 +795,15 @@ export const comunidadeComentarios = pgTable('comunidade_comentarios', {
 
 // ===== Reconhecimento (mural de valores) =====
 
+export const reconhecimentoValores = pgTable('reconhecimento_valores', {
+  chave: text('chave').primaryKey(),
+  nome: text('nome').notNull(),
+  curto: text('curto').notNull(),
+  tom: text('tom').notNull(),
+  ordem: integer('ordem').notNull().default(0),
+  createdAt: createdAt(),
+});
+
 export const reconhecimentos = pgTable('reconhecimentos', {
   id: uuid('id').primaryKey().defaultRandom(),
   autorId: uuid('autor_id').notNull().references(() => utilizadores.id, { onDelete: 'cascade' }),

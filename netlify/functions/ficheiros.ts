@@ -24,7 +24,7 @@ import {
  */
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-const FINALIDADES: Finalidade[] = ['foto', 'capa', 'documento', 'publicacao'];
+const FINALIDADES: Finalidade[] = ['foto', 'capa', 'documento', 'publicacao', 'submissao', 'empresa'];
 
 async function podeLer(user: AuthUser, key: string): Promise<{ nome?: string } | 'negado' | 'ausente'> {
   const perfil = await sql`SELECT 1 FROM perfis_utilizador WHERE foto_key = ${key} OR capa_key = ${key} LIMIT 1`;
@@ -48,9 +48,32 @@ async function podeLer(user: AuthUser, key: string): Promise<{ nome?: string } |
   if (publicacao.length) return {};
 
   const evento = await sql`
-    SELECT 1 FROM eventos WHERE imagem = ${`/api/ficheiros?key=${key}`} LIMIT 1
+    SELECT 1 FROM information_schema.columns
+     WHERE table_name = 'eventos' AND column_name = 'imagem'
   `;
-  if (evento.length) return {};
+  if (evento.length) {
+    const comImagem = await sql`
+      SELECT 1 FROM eventos WHERE imagem = ${`/api/ficheiros?key=${key}`} LIMIT 1
+    `;
+    if (comImagem.length) return {};
+  }
+
+  const politica = await sql`
+    SELECT nome FROM documentos_empresa WHERE ficheiro_ref = ${key} LIMIT 1
+  `;
+  if (politica.length) return { nome: politica[0].nome as string };
+
+  const submissao = await sql`
+    SELECT s.ficheiro_nome, c.utilizador_id
+      FROM submissoes_documentos s
+      JOIN colaboradores c ON c.id = s.colaborador_id
+     WHERE s.ficheiro_ref = ${key}
+     LIMIT 1
+  `;
+  if (submissao.length) {
+    if (submissao[0].utilizador_id !== user.id && user.role !== 'rh_admin') return 'negado';
+    return { nome: (submissao[0].ficheiro_nome as string) || undefined };
+  }
 
   if (await imagemPorConfirmar(key, user.id)) return {};
   return 'ausente';
@@ -80,6 +103,15 @@ export default async (req: Request): Promise<Response> => {
 
       if (finalidade === 'publicacao') {
         return jsonResponse({ data: await linkEnvio(`comunidade/${user.id}`, user.id, 'PRIVATE') });
+      }
+
+      if (finalidade === 'submissao') {
+        return jsonResponse({ data: await linkEnvio(`submissoes/${user.id}`, user.id, 'PRIVATE') });
+      }
+
+      if (finalidade === 'empresa') {
+        if (user.role !== 'rh_admin') return errorResponse('Sem permissão', 403);
+        return jsonResponse({ data: await linkEnvio('empresa/politicas', user.id, 'PRIVATE') });
       }
 
       const progressoId = typeof body.progressoId === 'string' ? body.progressoId : '';

@@ -25,6 +25,8 @@ export const PAGINAS: PaginaCatalogo[] = [
   { chave: 'eventos', nome: 'Eventos', rota: '/eventos', modulo: 'Geral', perfis: todos, ordem: 20 },
   { chave: 'reconhecimento', nome: 'Reconhecimento', rota: '/reconhecimento', modulo: 'Geral', perfis: todos, ordem: 30 },
   { chave: 'meu-perfil', nome: 'O meu perfil', rota: '/meu-perfil', modulo: 'Geral', perfis: todos, ordem: 40 },
+  { chave: 'documentos-empresa', nome: 'Políticas e Procedimentos', rota: '/politicas', modulo: 'Geral', perfis: todos, ordem: 45 },
+  { chave: 'meus-documentos', nome: 'Políticas e Procedimentos', rota: '/politicas', modulo: 'Geral', perfis: todos, ordem: 46 },
   { chave: 'dashboard', nome: 'Dashboard', rota: '/', modulo: 'Geral', perfis: admin, ordem: 50 },
 
   { chave: 'recrutamento-semanal', nome: 'Dashboard Semanal', rota: '/recrutamento/dashboard-semanal', modulo: 'Recrutamento', perfis: admin, ordem: 110 },
@@ -40,7 +42,6 @@ export const PAGINAS: PaginaCatalogo[] = [
   { chave: 'quiz', nome: 'Quiz de Boas-Vindas', rota: '/onboarding/quiz', modulo: 'Onboarding', perfis: admin, ordem: 350 },
   { chave: 'videos', nome: 'Vídeos de Boas-Vindas', rota: '/onboarding/videos', modulo: 'Onboarding', perfis: admin, ordem: 360 },
   { chave: 'evolucao', nome: 'Dashboard de Evolução', rota: '/onboarding/evolucao', modulo: 'Onboarding', perfis: admin, ordem: 370 },
-  { chave: 'documentos-empresa', nome: 'Documentos da Empresa', rota: '/onboarding/documentos', modulo: 'Onboarding', perfis: admin, ordem: 380 },
   { chave: 'documentos-exigidos', nome: 'Documentos Exigidos', rota: '/onboarding/documentos-exigidos', modulo: 'Onboarding', perfis: admin, ordem: 390 },
 
   { chave: 'mentores', nome: 'Mentores', rota: '/mentores', modulo: 'Mentoria', perfis: admin, ordem: 410 },
@@ -57,7 +58,6 @@ export const PAGINAS: PaginaCatalogo[] = [
   { chave: 'timeline', nome: 'Timeline', rota: '/colaborador/timeline', modulo: 'O Meu Onboarding', perfis: colaborador, ordem: 730 },
   { chave: 'comentarios-mentor', nome: 'Comentários do Mentor', rota: '/colaborador/comentarios', modulo: 'O Meu Onboarding', perfis: colaborador, ordem: 740 },
   { chave: 'feedback', nome: 'Feedback / Auto-avaliação', rota: '/colaborador/feedback', modulo: 'O Meu Onboarding', perfis: colaborador, ordem: 750 },
-  { chave: 'meus-documentos', nome: 'Documentos da Empresa', rota: '/colaborador/documentos', modulo: 'O Meu Onboarding', perfis: colaborador, ordem: 760 },
   { chave: 'submissoes', nome: 'Submissão de Documentos', rota: '/colaborador/submissoes', modulo: 'O Meu Onboarding', perfis: colaborador, ordem: 770 },
 
   { chave: 'utilizadores', nome: 'Utilizadores', rota: '/utilizadores', modulo: 'Sistema', perfis: admin, ordem: 810 },

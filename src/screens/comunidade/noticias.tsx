@@ -53,9 +53,12 @@ export function PostForm({ post, onSaved, onCancel }: { post?: ComunidadePost; o
   const [fixado, setFixado] = useState(post?.fixado ?? false);
   const [saving, setSaving] = useState(false);
   const [imagemErro, setImagemErro] = useState(false);
+  const [previewLocal, setPreviewLocal] = useState<string | null>(null);
+  const previewRef = useRef<string | null>(null);
   const [aEnviarImagem, setAEnviarImagem] = useState(false);
   const [pctImagem, setPctImagem] = useState(0);
   const inputImagem = useRef<HTMLInputElement>(null);
+  useEffect(() => () => { if (previewRef.current) URL.revokeObjectURL(previewRef.current); }, []);
   const linkImagem = imagem.trim();
   const imagemCarregada = IMAGEM_APP.test(linkImagem);
   const linkInvalido = !!linkImagem && !linkImagemValido(linkImagem);
@@ -66,18 +69,33 @@ export function PostForm({ post, onSaved, onCancel }: { post?: ComunidadePost; o
       toast.error('Imagem não aceite', invalido);
       return;
     }
+    const local = URL.createObjectURL(file);
+    if (previewRef.current) URL.revokeObjectURL(previewRef.current);
+    previewRef.current = local;
+    setPreviewLocal(local);
+    setImagemErro(false);
     setAEnviarImagem(true);
     setPctImagem(0);
     try {
       const enviado = await enviarFicheiro(file, { finalidade: 'publicacao', onProgresso: setPctImagem });
       setImagem(`/api/ficheiros?key=${enviado.id}`);
-      setImagemErro(false);
     } catch (e) {
+      if (previewRef.current === local) {
+        URL.revokeObjectURL(local);
+        previewRef.current = null;
+        setPreviewLocal(null);
+      }
       const { msg, jaNotificado } = erroPedido(e, 'Não foi possível enviar a imagem.');
       if (!jaNotificado) toast.error('Imagem não enviada', msg);
     } finally {
       setAEnviarImagem(false);
     }
+  }
+
+  function limparPreviewLocal() {
+    if (previewRef.current) URL.revokeObjectURL(previewRef.current);
+    previewRef.current = null;
+    setPreviewLocal(null);
   }
 
   async function submit(e: FormEvent) {
@@ -115,11 +133,7 @@ export function PostForm({ post, onSaved, onCancel }: { post?: ComunidadePost; o
   }
 
   return (
-    <form
-      onSubmit={submit}
-      className={cn('space-y-3', !post && 'rounded-xl border border-navy-100 bg-white p-6')}
-    >
-      {!post && <p className="text-sm font-semibold text-navy-800">Nova publicação</p>}
+    <form onSubmit={submit} className="space-y-3">
       <Input value={titulo} onChange={(e) => setTitulo(e.target.value)} placeholder="Título (opcional)" maxLength={200} />
       <RichTextEditor
         value={conteudo}
@@ -148,6 +162,7 @@ export function PostForm({ post, onSaved, onCancel }: { post?: ComunidadePost; o
             onChange={(e) => {
               setImagem(e.target.value);
               setImagemErro(false);
+              limparPreviewLocal();
             }}
             placeholder={imagemCarregada ? 'Imagem carregada — cola um link para a substituir' : 'Link da imagem (opcional) — https://…'}
             maxLength={2000}
@@ -168,7 +183,7 @@ export function PostForm({ post, onSaved, onCancel }: { post?: ComunidadePost; o
             {aEnviarImagem ? `A enviar ${pctImagem}%` : 'Carregar imagem'}
           </Button>
           {linkImagem && (
-            <Button type="button" variant="ghost" size="sm" disabled={aEnviarImagem} onClick={() => { setImagem(''); setImagemErro(false); }}>
+            <Button type="button" variant="ghost" size="sm" disabled={aEnviarImagem} onClick={() => { setImagem(''); setImagemErro(false); limparPreviewLocal(); }}>
               Remover
             </Button>
           )}
@@ -177,14 +192,14 @@ export function PostForm({ post, onSaved, onCancel }: { post?: ComunidadePost; o
         {linkInvalido && (
           <p className="mt-1.5 text-xs text-error-600">O link tem de começar por http:// ou https://</p>
         )}
-        {linkImagem && !linkInvalido && (
-          imagemErro ? (
+        {(previewLocal || (linkImagem && !linkInvalido)) && (
+          imagemErro && !previewLocal ? (
             <p className="mt-1.5 text-xs text-warning-600">Não foi possível pré-visualizar a imagem. Confirma se o link é público e aponta para uma imagem.</p>
           ) : (
             <img
-              src={linkImagem}
+              src={previewLocal || linkImagem}
               alt=""
-              onError={() => setImagemErro(true)}
+              onError={() => { if (!previewLocal) setImagemErro(true); }}
               className="mt-2 max-h-96 w-full rounded-lg object-cover"
             />
           )

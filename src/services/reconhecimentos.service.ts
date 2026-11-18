@@ -1,6 +1,13 @@
 import { apiClient } from './api.client';
 
-export type ValorId = 'seguranca' | 'cliente' | 'equipa' | 'inovacao' | 'integridade';
+export type ValorId = string;
+
+export interface ValorReconhecimento {
+  chave: string;
+  nome: string;
+  curto: string;
+  tom: string;
+}
 
 export interface ReconhecimentoItem {
   id: string;
@@ -42,6 +49,14 @@ export interface ReconhecimentoPainel {
   sugestoes: { id: string; nome: string; detalhe: string }[];
 }
 
+export interface PessoaReconhecimento {
+  id: string;
+  utilizador_id: string | null;
+  nome: string;
+  funcao: string | null;
+  departamento: string | null;
+}
+
 export interface NovoReconhecimento {
   destinatarioId?: string | null;
   destinatarioNome: string;
@@ -57,6 +72,10 @@ function data<T>(p: Promise<{ data: { data: T } }>): Promise<T> {
 
 export const reconhecimentosService = {
   painel: () => data<ReconhecimentoPainel>(apiClient.get('/reconhecimentos')),
+  pessoas: () => data<PessoaReconhecimento[]>(apiClient.get('/reconhecimentos/pessoas', { silencioso: true })),
+  valores: () => data<ValorReconhecimento[]>(apiClient.get('/reconhecimentos/valores', { silencioso: true })),
+  criarValor: (body: { nome: string; curto?: string }) =>
+    data<ValorReconhecimento>(apiClient.post('/reconhecimentos/valores', body)),
   publicar: (body: NovoReconhecimento) =>
     data<{ id: string; directoresInformados: number }>(apiClient.post('/reconhecimentos', body)),
   aplaudir: (id: string) => data<{ aplausos: number; aplaudi: boolean }>(apiClient.post(`/reconhecimentos/${id}/aplauso`)),

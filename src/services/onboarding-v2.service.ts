@@ -84,6 +84,7 @@ export interface SubmissaoItem {
   ordem: number;
   submissao_id: string | null;
   estado: EstadoSubmissao;
+  ficheiro_ref: string | null;
   ficheiro_nome: string | null;
   motivo_rejeicao: string | null;
   submetido_em: string | null;
@@ -278,8 +279,8 @@ export const trilhosService = {
 
 export const submissoesService = {
   minhas: () => data<SubmissaoItem[]>(apiClient.get('/submissoes')),
-  confirmar: (documento_exigido_id: string) =>
-    data<unknown>(apiClient.post('/submissoes', { documento_exigido_id })),
+  confirmar: (documento_exigido_id: string, ficheiro?: { ficheiro_id: string; nome: string }) =>
+    data<unknown>(apiClient.post('/submissoes', { documento_exigido_id, ficheiro_id: ficheiro?.ficheiro_id, nome: ficheiro?.nome })),
   desmarcar: (submissaoId: string) =>
     data<unknown>(apiClient.delete(`/submissoes/${submissaoId}`)),
   doColaborador: (colaboradorId: string) =>

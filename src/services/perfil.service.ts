@@ -47,8 +47,8 @@ export interface MeuPerfil {
     recebidos: number;
     dados: number;
     aplausos: number;
-    por_valor: { valor: string; total: number }[];
-    ultimos: { id: string; valor: string; mensagem: string; created_at: string; autor_nome: string }[];
+    por_valor: { valor: string; nome?: string; total: number }[];
+    ultimos: { id: string; valor: string; valor_nome?: string; mensagem: string; created_at: string; autor_nome: string }[];
   };
   actividade: ActividadePerfil[];
 }

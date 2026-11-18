@@ -39,7 +39,6 @@ const MeuTrilhoPage = lazy(() => import('./screens/onboarding/MeuTrilhoPage'));
 const QuizAdminPage = lazy(() => import('./screens/onboarding/QuizAdminPage'));
 const VideosAdminPage = lazy(() => import('./screens/onboarding/VideosAdminPage'));
 const EvolucaoPage = lazy(() => import('./screens/onboarding/EvolucaoPage'));
-const DocumentosEmpresaAdminPage = lazy(() => import('./screens/onboarding/DocumentosEmpresaAdminPage'));
 const DocumentosExigidosAdminPage = lazy(() => import('./screens/onboarding/DocumentosExigidosAdminPage'));
 const FichasTrabalhadorAdminPage = lazy(() => import('./screens/onboarding/FichasTrabalhadorAdminPage'));
 
@@ -229,7 +228,7 @@ export default function App() {
               <Route path="onboarding/quiz" element={<QuizAdminPage />} />
               <Route path="onboarding/videos" element={<VideosAdminPage />} />
               <Route path="onboarding/evolucao" element={<EvolucaoPage />} />
-              <Route path="onboarding/documentos" element={<DocumentosEmpresaAdminPage />} />
+              <Route path="onboarding/documentos" element={<Navigate to="/politicas" replace />} />
               <Route path="onboarding/documentos-exigidos" element={<DocumentosExigidosAdminPage />} />
               <Route path="onboarding/fichas" element={<FichasTrabalhadorAdminPage />} />
               <Route path="onboarding/colaborador/:id" element={<ColaboradorProgressoPage />} />
@@ -284,9 +283,17 @@ export default function App() {
               <Route index element={<WelcomeGuard><MeuTrilhoPage /></WelcomeGuard>} />
             </Route>
             <Route path="/assistente-colaborador" element={<Navigate to="/assistente" replace />} />
-            <Route path="/colaborador/documentos" element={<ColaboradorRoute />}>
+            <Route
+              path="/politicas"
+              element={
+                <RoleGuard roles={['rh_admin', 'mentor', 'novo_colaborador']}>
+                  <Layout />
+                </RoleGuard>
+              }
+            >
               <Route index element={<WelcomeGuard><DocumentosEmpresaPage /></WelcomeGuard>} />
             </Route>
+            <Route path="/colaborador/documentos" element={<Navigate to="/politicas" replace />} />
             <Route path="/colaborador/submissoes" element={<ColaboradorRoute />}>
               <Route index element={<WelcomeGuard><SubmissoesPage /></WelcomeGuard>} />
             </Route>

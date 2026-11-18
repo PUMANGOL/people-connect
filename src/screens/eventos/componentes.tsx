@@ -96,7 +96,7 @@ export function horario(e: Evento): string {
   return e.fim && mesmoDia(new Date(e.inicio), new Date(e.fim)) ? `${hora(e.inicio)} – ${hora(e.fim)}` : hora(e.inicio);
 }
 
-function fimEfectivo(e: Evento): Date {
+export function fimEfectivo(e: Evento): Date {
   if (e.fim) return new Date(e.fim);
   const d = new Date(e.inicio);
   return e.dia_inteiro ? maisDias(inicioDoDia(d), 1) : new Date(d.getTime() + 60 * 60 * 1000);
@@ -646,9 +646,12 @@ export function EventoForm({ evento, diaInicial, onFechar, onGuardado }: {
   const [descricao, setDescricao] = useState(evento?.descricao ?? '');
   const [imagem, setImagem] = useState(evento?.imagem ?? '');
   const [imagemErro, setImagemErro] = useState(false);
+  const [previewLocal, setPreviewLocal] = useState<string | null>(null);
+  const previewRef = useRef<string | null>(null);
   const [aEnviarImagem, setAEnviarImagem] = useState(false);
   const [pctImagem, setPctImagem] = useState(0);
   const inputImagem = useRef<HTMLInputElement>(null);
+  useEffect(() => () => { if (previewRef.current) URL.revokeObjectURL(previewRef.current); }, []);
   const [destaque, setDestaque] = useState(evento?.destaque ?? false);
   const [aGuardar, setAGuardar] = useState(false);
   const linkImagem = imagem.trim();
@@ -667,18 +670,33 @@ export function EventoForm({ evento, diaInicial, onFechar, onGuardado }: {
       toast.error('Imagem não aceite', invalido);
       return;
     }
+    const local = URL.createObjectURL(file);
+    if (previewRef.current) URL.revokeObjectURL(previewRef.current);
+    previewRef.current = local;
+    setPreviewLocal(local);
+    setImagemErro(false);
     setAEnviarImagem(true);
     setPctImagem(0);
     try {
       const enviado = await enviarFicheiro(file, { finalidade: 'publicacao', onProgresso: setPctImagem });
       setImagem(`/api/ficheiros?key=${enviado.id}`);
-      setImagemErro(false);
     } catch (err) {
+      if (previewRef.current === local) {
+        URL.revokeObjectURL(local);
+        previewRef.current = null;
+        setPreviewLocal(null);
+      }
       const { msg, jaNotificado } = erroPedido(err, 'Não foi possível enviar a imagem.');
       if (!jaNotificado) toast.error('Imagem não enviada', msg);
     } finally {
       setAEnviarImagem(false);
     }
+  }
+
+  function limparPreviewLocal() {
+    if (previewRef.current) URL.revokeObjectURL(previewRef.current);
+    previewRef.current = null;
+    setPreviewLocal(null);
   }
 
   async function submit(e: FormEvent) {
@@ -804,6 +822,7 @@ export function EventoForm({ evento, diaInicial, onFechar, onGuardado }: {
               onChange={(ev) => {
                 setImagem(ev.target.value);
                 setImagemErro(false);
+                limparPreviewLocal();
               }}
               placeholder={imagemCarregada ? 'Imagem carregada — cola um link para a substituir' : 'Link da imagem (opcional) — https://…'}
               maxLength={2000}
@@ -823,7 +842,7 @@ export function EventoForm({ evento, diaInicial, onFechar, onGuardado }: {
               {aEnviarImagem ? `A enviar ${pctImagem}%` : 'Carregar imagem'}
             </Button>
             {linkImagem && (
-              <Button type="button" variant="ghost" size="sm" disabled={aEnviarImagem} onClick={() => { setImagem(''); setImagemErro(false); }}>
+              <Button type="button" variant="ghost" size="sm" disabled={aEnviarImagem} onClick={() => { setImagem(''); setImagemErro(false); limparPreviewLocal(); }}>
                 Remover
               </Button>
             )}
@@ -832,14 +851,14 @@ export function EventoForm({ evento, diaInicial, onFechar, onGuardado }: {
           {linkInvalido && (
             <p className="mt-1.5 text-xs text-error-600">O link tem de começar por http:// ou https://</p>
           )}
-          {linkImagem && !linkInvalido && (
-            imagemErro ? (
+          {(previewLocal || (linkImagem && !linkInvalido)) && (
+            imagemErro && !previewLocal ? (
               <p className="mt-1.5 text-xs text-warning-600">Não foi possível pré-visualizar a imagem. Confirma se o link é público e aponta para uma imagem.</p>
             ) : (
               <img
-                src={linkImagem}
+                src={previewLocal || linkImagem}
                 alt=""
-                onError={() => setImagemErro(true)}
+                onError={() => { if (!previewLocal) setImagemErro(true); }}
                 className="mt-2 max-h-48 w-full rounded-lg object-cover"
               />
             )

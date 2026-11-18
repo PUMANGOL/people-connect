@@ -75,13 +75,18 @@ async function lerPerfil(userId: string) {
             WHERE r.destinatario_id = ${userId})::int AS aplausos
       `,
       sql`
-        SELECT valor, COUNT(*)::int AS total
-          FROM reconhecimentos WHERE destinatario_id = ${userId}
-         GROUP BY valor ORDER BY total DESC
+        SELECT r.valor, COALESCE(v.nome, r.valor) AS nome, COUNT(*)::int AS total
+          FROM reconhecimentos r
+          LEFT JOIN reconhecimento_valores v ON v.chave = r.valor
+         WHERE r.destinatario_id = ${userId}
+         GROUP BY r.valor, v.nome
+         ORDER BY total DESC
       `,
       sql`
-        SELECT r.id, r.valor, r.mensagem, r.created_at, u.nome AS autor_nome
-          FROM reconhecimentos r JOIN utilizadores u ON u.id = r.autor_id
+        SELECT r.id, r.valor, COALESCE(v.nome, r.valor) AS valor_nome, r.mensagem, r.created_at, u.nome AS autor_nome
+          FROM reconhecimentos r
+          JOIN utilizadores u ON u.id = r.autor_id
+          LEFT JOIN reconhecimento_valores v ON v.chave = r.valor
          WHERE r.destinatario_id = ${userId}
          ORDER BY r.created_at DESC
          LIMIT 5

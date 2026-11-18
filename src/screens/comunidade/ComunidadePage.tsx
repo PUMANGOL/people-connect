@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { Bell, CheckCheck, Megaphone, RefreshCw } from 'lucide-react';
+import { Bell, CheckCheck, Megaphone, Plus, RefreshCw } from 'lucide-react';
 import { Button } from '@/src/components/ui/button';
 import { Dialog, ConfirmDialog } from '@/src/components/ui/dialog';
 import { SkeletonCard } from '@/src/components/ui/skeleton';
@@ -30,6 +30,7 @@ export default function ComunidadePage() {
   const pedidoActual = useRef(0);
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(false);
+  const [criar, setCriar] = useState(false);
   const [editar, setEditar] = useState<ComunidadePost | null>(null);
   const [confirmar, setConfirmar] = useState<ComunidadePost | null>(null);
   const [removendo, setRemovendo] = useState(false);
@@ -126,7 +127,13 @@ export default function ComunidadePage() {
     <div className="mx-auto grid max-w-6xl items-start gap-6 lg:grid-cols-[minmax(0,1fr)_340px]">
       {/* Coluna das publicações (esquerda) */}
       <div className="min-w-0 space-y-6">
-      {isAdmin && <PostForm onSaved={carregar} />}
+      {isAdmin && (
+        <div className="flex justify-end">
+          <Button variant="primary" onClick={() => setCriar(true)} leftIcon={<Plus className="h-4 w-4" />}>
+            Adicionar
+          </Button>
+        </div>
+      )}
 
       {loading ? (
         <div className="space-y-4">
@@ -152,7 +159,7 @@ export default function ComunidadePage() {
         <div className="rounded-xl border border-dashed border-navy-200 bg-white p-10 text-center">
           <Megaphone className="mx-auto h-8 w-8 text-navy-300" />
           <p className="mt-3 text-sm text-navy-500">Ainda não há publicações na comunidade.</p>
-          {isAdmin && <p className="mt-1 text-xs text-navy-400">Cria a primeira publicação acima.</p>}
+          {isAdmin && <p className="mt-1 text-xs text-navy-400">Usa Adicionar para criar a primeira publicação.</p>}
         </div>
       ) : (
         <div className="space-y-4">
@@ -195,6 +202,19 @@ export default function ComunidadePage() {
 
       {/* Notificações (direita) */}
       <NotificacoesCard />
+
+      {criar && (
+        <Dialog open onClose={() => setCriar(false)} className="max-w-4xl">
+          <h2 className="mb-4 text-lg font-semibold text-foreground">Nova publicação</h2>
+          <PostForm
+            onCancel={() => setCriar(false)}
+            onSaved={() => {
+              setCriar(false);
+              carregar();
+            }}
+          />
+        </Dialog>
+      )}
 
       {editar && (
         <Dialog open onClose={() => setEditar(null)} className="max-w-4xl">

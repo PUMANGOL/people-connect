@@ -12,7 +12,7 @@ import { eventosService, type CategoriaEvento, type Evento, type ZonaEvento } fr
 import {
   CATEGORIAS_EVENTO, ORDEM_CATEGORIAS, ZONAS_EVENTO,
   Calendario, EventoDestaque, EventoDetalhe, EventoForm, PontoCategoria,
-  diaCurto, intervaloDaVista, quando, type Vista,
+  diaCurto, fimEfectivo, intervaloDaVista, quando, type Vista,
 } from './componentes';
 
 // Zonas do filtro «Local» (como no modelo; «Online» fica só no formulário).
@@ -31,6 +31,7 @@ export default function EventosPage() {
 
   const [categoria, setCategoria] = useState<CategoriaEvento | null>(null);
   const [zona, setZona] = useState<ZonaEvento | null>(null);
+  const [quandoFiltro, setQuandoFiltro] = useState<'todos' | 'ainda' | 'passados'>('todos');
 
   const [aberto, setAberto] = useState<Evento | null>(null);
   const [form, setForm] = useState<{ evento?: Evento; dia?: Date } | null>(null);
@@ -65,10 +66,17 @@ export default function EventosPage() {
     carregarLaterais();
   };
 
-  const filtrados = useMemo(
-    () => eventos.filter((e) => (!categoria || e.categoria === categoria) && (!zona || e.zona === zona)),
-    [eventos, categoria, zona],
-  );
+  const filtrados = useMemo(() => {
+    const agora = Date.now();
+    return eventos.filter((e) => {
+      if (categoria && e.categoria !== categoria) return false;
+      if (zona && e.zona !== zona) return false;
+      const passou = fimEfectivo(e).getTime() < agora;
+      if (quandoFiltro === 'ainda') return !passou;
+      if (quandoFiltro === 'passados') return passou;
+      return true;
+    });
+  }, [eventos, categoria, zona, quandoFiltro]);
 
   /** O mesmo cartão percorre os eventos visíveis: o fixado primeiro, depois por data. */
   const cartoes = useMemo(() => {
@@ -163,6 +171,11 @@ export default function EventosPage() {
             </ChipFiltro>
           ))}
         </div>
+        <div className="flex flex-wrap gap-2" role="group" aria-label="Altura do evento">
+          <ChipFiltro activo={quandoFiltro === 'todos'} onClick={() => setQuandoFiltro('todos')}>Todos</ChipFiltro>
+          <ChipFiltro activo={quandoFiltro === 'ainda'} onClick={() => setQuandoFiltro('ainda')}>Ainda</ChipFiltro>
+          <ChipFiltro activo={quandoFiltro === 'passados'} onClick={() => setQuandoFiltro('passados')}>Já passaram</ChipFiltro>
+        </div>
       </div>
 
       <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_300px]">
@@ -185,7 +198,13 @@ export default function EventosPage() {
           ) : (
             <div className="rounded-2xl border border-dashed border-navy-200 bg-white p-8 text-center">
               <CalendarDays className="mx-auto h-8 w-8 text-navy-300" />
-              <p className="mt-2 text-sm text-navy-500">Não há eventos agendados.</p>
+              <p className="mt-2 text-sm text-navy-500">
+                {quandoFiltro === 'ainda'
+                  ? 'Não há eventos por acontecer neste período.'
+                  : quandoFiltro === 'passados'
+                    ? 'Não há eventos já realizados neste período.'
+                    : 'Não há eventos agendados.'}
+              </p>
             </div>
           )}
 
