@@ -22,7 +22,7 @@ export default async (req: Request): Promise<Response> => {
     const status = message.includes('inválido') || message.includes('expirado') ? 400 : 500;
     if (status === 500) console.error('[definir-password]', err);
     return errorResponse(
-      status === 400 ? 'Este link já foi utilizado ou expirou. Peça um novo link de redefinição.' : message,
+      status === 400 ? 'Este link já foi utilizado ou expirou. Peça um novo link.' : message,
       status,
     );
   }

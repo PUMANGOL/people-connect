@@ -34,6 +34,7 @@ import mentorPortal, { config as mentorPortalConfig } from '@/netlify/functions/
 import mentors, { config as mentorsConfig } from '@/netlify/functions/mentors';
 import onboardingEvents, { config as onboardingEventsConfig } from '@/netlify/functions/onboarding-events';
 import ping, { config as pingConfig } from '@/netlify/functions/ping';
+import primeiroAcesso, { config as primeiroAcessoConfig } from '@/netlify/functions/primeiro-acesso';
 import quizPerguntas, { config as quizPerguntasConfig } from '@/netlify/functions/quiz-perguntas';
 import reconhecimentos, { config as reconhecimentosConfig } from '@/netlify/functions/reconhecimentos';
 import recuperarPassword, { config as recuperarPasswordConfig } from '@/netlify/functions/recuperar-password';
@@ -122,6 +123,7 @@ register(routes, mentorPortal, mentorPortalConfig.path);
 register(routes, mentors, mentorsConfig.path);
 register(routes, onboardingEvents, onboardingEventsConfig.path);
 register(routes, ping, pingConfig.path);
+register(routes, primeiroAcesso, primeiroAcessoConfig.path);
 register(routes, quizPerguntas, quizPerguntasConfig.path);
 register(routes, reconhecimentos, reconhecimentosConfig.path);
 register(routes, recuperarPassword, recuperarPasswordConfig.path);

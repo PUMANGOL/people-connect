@@ -107,6 +107,7 @@ apiClient.interceptors.response.use(
       const onPublicPage = path === '/login'
         || path.startsWith('/definir-password')
         || path.startsWith('/recuperar-password')
+        || path.startsWith('/primeiro-acesso')
         || path === '/unauthorized'
         || path === '/link-invalido';
       if (!onPublicPage && !authRedirecting) {

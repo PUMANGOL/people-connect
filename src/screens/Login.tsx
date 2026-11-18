@@ -311,6 +311,13 @@ export default function Login() {
               </Button>
             </form>
 
+            <p className="mt-4 text-center text-[0.8125rem] leading-[1.45] text-muted-foreground">
+              Ainda sem palavra-passe?{' '}
+              <Link to="/primeiro-acesso" className="font-semibold text-navy-800 underline-offset-4 hover:underline">
+                Primeiro Acesso
+              </Link>
+            </p>
+
             <p className="mt-6 text-center text-[0.8125rem] leading-[1.45] text-muted-foreground">
               Sem acesso? Contacta a <span className="font-medium text-neutral-700">Direcção de Pessoas e Cultura</span>.
             </p>

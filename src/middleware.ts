@@ -4,6 +4,7 @@ import { NextResponse, type NextRequest } from 'next/server';
 const PUBLIC_PAGES = [
   /^\/login\/?$/,
   /^\/recuperar-password\/?$/,
+  /^\/primeiro-acesso\/?$/,
   /^\/definir-password\/?$/,
   /^\/unauthorized\/?$/,
   /^\/link-invalido\/?$/,
@@ -15,6 +16,7 @@ const PUBLIC_API = [
   /^\/api\/auth-login\/?$/,
   /^\/api\/definir-password\/?$/,
   /^\/api\/recuperar-password\/?$/,
+  /^\/api\/primeiro-acesso\/?$/,
   /^\/api\/ping\/?$/,
   /^\/api\/health\/?$/,
   /^\/api\/candidatura\/[^/]+\/?$/,

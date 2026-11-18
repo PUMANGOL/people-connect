@@ -13,6 +13,7 @@ import type { AuthUser } from '@/lib/types';
 export default function DefinirPassword() {
   const [params] = useSearchParams();
   const token = params.get('token') ?? '';
+  const primeiro = params.get('primeiro') === '1';
   const navigate = useNavigate();
   const setUser = useAuthStore((s) => s.setUser);
   const [password, setPassword] = useState('');
@@ -25,7 +26,9 @@ export default function DefinirPassword() {
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     if (!token) {
-      setError('Este link está incompleto. Peça um novo link de redefinição.');
+      setError(primeiro
+        ? 'Este link está incompleto. Peça um novo em Primeiro Acesso.'
+        : 'Este link está incompleto. Peça um novo link de redefinição.');
       return;
     }
     if (password.length < 8) {
@@ -97,9 +100,13 @@ export default function DefinirPassword() {
             </div>
           ) : (
             <>
-              <h2 className="text-2xl font-bold text-navy-900 tracking-tight">Definir palavra-passe</h2>
+              <h2 className="text-2xl font-bold text-navy-900 tracking-tight">
+                {primeiro ? 'Definir palavra-passe' : 'Nova palavra-passe'}
+              </h2>
               <p className="text-sm text-navy-400 mt-1.5 mb-8">
-                Escolha uma palavra-passe com pelo menos 8 caracteres.
+                {primeiro
+                  ? 'Escolha a palavra-passe da sua conta. Pelo menos 8 caracteres.'
+                  : 'Escolha uma palavra-passe com pelo menos 8 caracteres.'}
               </p>
 
               {error && (
@@ -111,7 +118,9 @@ export default function DefinirPassword() {
 
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div>
-                  <label className="block text-xs font-medium text-navy-600 mb-1.5">Nova palavra-passe</label>
+                  <label className="block text-xs font-medium text-navy-600 mb-1.5">
+                    {primeiro ? 'Palavra-passe' : 'Nova palavra-passe'}
+                  </label>
                   <div className="relative">
                     <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-navy-300" />
                     <input

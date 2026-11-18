@@ -14,6 +14,7 @@ import { StoreToaster, ToastProvider } from './components/ui/toast';
 const Login = lazy(() => import('./screens/Login'));
 const DefinirPassword = lazy(() => import('./screens/DefinirPassword'));
 const RecuperarPassword = lazy(() => import('./screens/RecuperarPassword'));
+const PrimeiroAcesso = lazy(() => import('./screens/PrimeiroAcesso'));
 const Dashboard = lazy(() => import('./screens/Dashboard'));
 const InicioPage = lazy(() => import('./screens/inicio/InicioPage'));
 const ComunidadePage = lazy(() => import('./screens/comunidade/ComunidadePage'));
@@ -313,6 +314,7 @@ export default function App() {
             {/* Login */}
             <Route path="/login" element={<Login />} />
             <Route path="/recuperar-password" element={<RecuperarPassword />} />
+            <Route path="/primeiro-acesso" element={<PrimeiroAcesso />} />
             <Route path="/definir-password" element={<DefinirPassword />} />
             <Route path="/candidatura/:token" element={<CandidaturaDocumentosPage />} />
 

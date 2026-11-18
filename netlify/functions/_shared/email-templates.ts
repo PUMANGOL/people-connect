@@ -151,6 +151,27 @@ export function emailRecuperarPassword(opts: {
   return { subject: `Redefinir palavra-passe — ${APP_NAME_TITLE}`, ...rendered };
 }
 
+export function emailPrimeiroAcesso(opts: {
+  nome: string;
+  href: string;
+  hasBanner: boolean;
+}): { subject: string; html: string; text: string } {
+  const rendered = layout({
+    preheader: 'Link para definir a palavra-passe da sua conta.',
+    title: 'Definir palavra-passe',
+    paragraphs: [
+      `Olá ${escapeHtml(opts.nome)},`,
+      'Recebemos um pedido de primeiro acesso à sua conta no People Connect. Ainda não tem palavra-passe.',
+      'Use o botão abaixo para a definir e entrar.',
+    ],
+    ctaLabel: 'Definir palavra-passe',
+    ctaHref: opts.href,
+    footnote: 'Este link é pessoal e expira em 72 horas. Se não pediu este acesso, ignore este email.',
+    hasBanner: opts.hasBanner,
+  });
+  return { subject: `Definir palavra-passe — ${APP_NAME_TITLE}`, ...rendered };
+}
+
 export function emailCartaOferta(opts: {
   assunto: string;
   corpoHtml: string;
