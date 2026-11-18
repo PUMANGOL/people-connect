@@ -1255,7 +1255,7 @@
   animation: lp-float 8s ease-in-out infinite;
 }
 .lp-w1 { top: 2%; right: 6%; }
-.lp-w2 { top: 37%; right: 0; width: 284px; animation-delay: -2.7s; }
+.lp-w2 { top: 37%; right: 18%; width: 284px; animation-delay: -2.7s; }
 .lp-w3 {
   bottom: 1%;
   left: 43%;
