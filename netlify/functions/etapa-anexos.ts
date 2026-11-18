@@ -2,11 +2,11 @@ import type { Config } from './_shared/route-config';
 import { sql, jsonResponse, errorResponse, handleCors, publicErrorMessage } from './_shared/db';
 import { requireAuth, authErrorResponse, AuthError, type AuthUser } from './_shared/auth';
 import { podeVerColaborador } from './_shared/acesso-colaborador';
-import { apagarObjecto, confirmarEnvio, StorageError } from './_shared/storage';
+import { apagarObjecto, confirmarEnvio, descartarEnvio, StorageError } from './_shared/storage';
 import { formatarAnexo, lerDocumentosPedidos } from './_shared/anexos';
 
 /**
- * Documentos anexados pelo colaborador às etapas do seu trilho (ficheiros no bucket S3).
+ * Documentos anexados pelo colaborador às etapas do seu trilho (Serviço de Ficheiros).
  * GET    /api/etapa-anexos?colaboradorId=…  — anexos do colaborador (próprio, RH ou mentor)
  * POST   /api/etapa-anexos                  — { progressoId, documentoChave, key, nome } depois do envio
  * DELETE /api/etapa-anexos/:id              — remove, enquanto a etapa não estiver concluída
@@ -67,8 +67,9 @@ export default async (req: Request): Promise<Response> => {
       if (!UUID_RE.test(progressoId) || !documentoChave || !nome) return errorResponse('Dados do anexo em falta', 400);
 
       const etapa = await etapaEditavel(user, progressoId);
+      const pasta = `trilhos/${etapa.colaboradorId}/${progressoId}`;
       if (!etapa.pedidos.some((d) => d.chave === documentoChave)) {
-        await apagarObjecto(key.startsWith(`trilhos/${etapa.colaboradorId}/${progressoId}/`) ? key : null);
+        await descartarEnvio(key, pasta, user.id);
         return errorResponse('Este documento não é pedido nesta etapa.', 400);
       }
       const [{ total }] = await sql`
@@ -76,11 +77,11 @@ export default async (req: Request): Promise<Response> => {
          WHERE progresso_id = ${progressoId} AND documento_chave = ${documentoChave}
       `;
       if ((total as number) >= MAX_POR_DOCUMENTO) {
-        await apagarObjecto(key.startsWith(`trilhos/${etapa.colaboradorId}/${progressoId}/`) ? key : null);
+        await descartarEnvio(key, pasta, user.id);
         return errorResponse(`Cada documento aceita até ${MAX_POR_DOCUMENTO} ficheiros.`, 409);
       }
 
-      const meta = await confirmarEnvio('documento', key, `trilhos/${etapa.colaboradorId}/${progressoId}`);
+      const meta = await confirmarEnvio('documento', key, pasta, user.id);
       const [anexo] = await sql`
         INSERT INTO etapa_anexos (progresso_id, documento_chave, ficheiro_key, ficheiro_nome, ficheiro_tipo, tamanho, enviado_por)
         VALUES (${progressoId}, ${documentoChave}, ${key}, ${nome}, ${meta.tipo}, ${meta.tamanho}, ${user.id})

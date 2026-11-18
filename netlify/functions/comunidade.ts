@@ -2,6 +2,7 @@ import type { Config } from './_shared/route-config';
 import sanitizeHtml from 'sanitize-html';
 import { sql, jsonResponse, errorResponse, handleCors, publicErrorMessage } from './_shared/db';
 import { requireAuth, authErrorResponse, AuthError } from './_shared/auth';
+import { apagarObjecto, confirmarEnvio, StorageError, urlFicheiro } from './_shared/storage';
 
 /**
  * Comunidade — página inicial da plataforma.
@@ -19,16 +20,33 @@ import { requireAuth, authErrorResponse, AuthError } from './_shared/auth';
 const MAX_CONTEUDO = 5000; // caracteres de texto (sem tags)
 const MAX_CONTEUDO_HTML = 50_000;
 const MAX_COMENTARIO = 1000;
-// Só aceitamos o link da imagem — nenhum ficheiro é guardado na BD.
+// Link externo ou imagem enviada para o serviço (a app guarda só o endereço /api/ficheiros?key=…).
 const MAX_IMAGEM_URL = 2000;
+const ID_IMAGEM = /^\/api\/ficheiros\?key=([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/i;
+
+function idImagemAplicacao(imagem: string | null | undefined): string | null {
+  if (!imagem) return null;
+  return imagem.match(ID_IMAGEM)?.[1] ?? null;
+}
 
 function imagemValida(imagem: unknown): string | null | false {
   if (imagem == null) return null;
   if (typeof imagem !== 'string') return false;
   const url = imagem.trim();
   if (!url) return null;
+  const id = idImagemAplicacao(url);
+  if (id) return urlFicheiro(id);
   if (url.length > MAX_IMAGEM_URL || !/^https?:\/\/\S+$/i.test(url)) return false;
   return url;
+}
+
+/** Confirma que uma imagem da app foi mesmo enviada por este utilizador. Links externos passam. */
+async function resolverImagem(imagem: string | null, userId: string): Promise<string | null> {
+  if (!imagem) return null;
+  const id = idImagemAplicacao(imagem);
+  if (!id) return imagem;
+  await confirmarEnvio('publicacao', id, `comunidade/${userId}`, userId);
+  return urlFicheiro(id);
 }
 
 // O conteúdo das publicações vem do editor rico (HTML). Só passam as tags do editor.
@@ -248,10 +266,11 @@ export default async (req: Request): Promise<Response> => {
       const imagem = imagemValida(body?.imagem);
       const erroConteudo = validarConteudo(conteudo);
       if (erroConteudo) return errorResponse(erroConteudo, 400);
-      if (imagem === false) return errorResponse('Link da imagem inválido (use um endereço http:// ou https://)', 400);
+      if (imagem === false) return errorResponse('Link da imagem inválido (use um endereço http:// ou https://, ou carrega uma imagem)', 400);
+      const imagemFinal = await resolverImagem(imagem, user.id);
       const rows = await sql`
         INSERT INTO comunidade_posts (autor_id, titulo, conteudo, imagem, fixado)
-        VALUES (${user.id}, ${titulo}, ${conteudo.html}, ${imagem}, ${body?.fixado === true})
+        VALUES (${user.id}, ${titulo}, ${conteudo.html}, ${imagemFinal}, ${body?.fixado === true})
         RETURNING id
       `;
       await notificarNovaPublicacao(rows[0].id as string, user.id, titulo, conteudo.texto);
@@ -266,29 +285,35 @@ export default async (req: Request): Promise<Response> => {
 
       const conteudo = conteudoSeguro('conteudo' in body ? body.conteudo : p.conteudo);
       const titulo = 'titulo' in body ? (String(body.titulo ?? '').trim() || null) : p.titulo;
-      const imagem = 'imagem' in body ? imagemValida(body.imagem) : p.imagem;
+      const imagemPedida = 'imagem' in body ? imagemValida(body.imagem) : undefined;
       const fixado = 'fixado' in body ? body.fixado === true : p.fixado;
       const erroConteudo = validarConteudo(conteudo);
       if (erroConteudo) return errorResponse(erroConteudo, 400);
-      if (imagem === false) return errorResponse('Link da imagem inválido (use um endereço http:// ou https://)', 400);
+      if (imagemPedida === false) return errorResponse('Link da imagem inválido (use um endereço http:// ou https://, ou carrega uma imagem)', 400);
+      const imagem = imagemPedida === undefined ? p.imagem as string | null : await resolverImagem(imagemPedida, user.id);
 
       await sql`
         UPDATE comunidade_posts SET
           titulo = ${titulo}, conteudo = ${conteudo.html}, imagem = ${imagem}, fixado = ${fixado}, updated_at = NOW()
         WHERE id = ${id}
       `;
+      const idAnterior = idImagemAplicacao(p.imagem as string | null);
+      const idNovo = idImagemAplicacao(imagem as string | null);
+      if (idAnterior && idAnterior !== idNovo) await apagarObjecto(idAnterior);
       return jsonResponse({ data: { ok: true } });
     }
 
     if (req.method === 'DELETE' && id && !sub) {
-      const rows = await sql`DELETE FROM comunidade_posts WHERE id = ${id} RETURNING id`;
+      const rows = await sql`DELETE FROM comunidade_posts WHERE id = ${id} RETURNING imagem`;
       if (!rows.length) return errorResponse('Publicação não encontrada', 404);
+      await apagarObjecto(idImagemAplicacao(rows[0].imagem as string | null));
       return jsonResponse({ data: { ok: true } });
     }
 
     return errorResponse('Método não suportado', 405);
   } catch (err) {
     if (err instanceof AuthError) return authErrorResponse(err);
+    if (err instanceof StorageError) return errorResponse(err.message, err.status);
     console.error('[comunidade]', err);
     return errorResponse(publicErrorMessage(err, 'Erro interno'));
   }

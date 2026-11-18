@@ -114,7 +114,7 @@ export default function InicioPage() {
           <img
             src="/people-connect-emblema.png"
             alt=""
-            className="h-24 w-24 shrink-0 rounded-2xl object-cover shadow-[0_0_28px_rgba(61,214,140,0.35)] ring-4 ring-[#3DD68C]/70 sm:h-28 sm:w-28"
+            className="h-24 w-24 shrink-0 object-contain sm:h-28 sm:w-28"
           />
 
           <div className="min-w-0 flex-1">
@@ -123,7 +123,9 @@ export default function InicioPage() {
               {saudacao}{primeiro ? `, ${primeiro}` : ''}
             </h1>
             {cargo ? <p className="mt-2 text-sm text-white/80">{cargo}</p> : null}
-            <p className="mt-3 max-w-xl text-base leading-relaxed text-white/90">{APP_SLOGAN}</p>
+            <p className="mt-3 max-w-xl text-base leading-relaxed text-white/90">
+              Bem-vindo ao People Connect. {APP_SLOGAN}.
+            </p>
             <p className="mt-2 max-w-xl text-sm leading-relaxed text-white/70">
               Daqui segues para as notícias, a agenda e o reconhecimento de quem faz a diferença.
             </p>
@@ -158,36 +160,35 @@ export default function InicioPage() {
         <section>
           <h2 className="text-lg font-extrabold tracking-tight text-[#0A0A0A] dark:text-white">Por onde começar</h2>
           <p className="mt-1 text-sm text-navy-500">Os caminhos mais usados, à mão.</p>
-          <div className="mt-4 grid gap-3 sm:grid-cols-2">
+          <ul className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
             {atalhos.map((atalho) => {
               const Icone = atalho.icon;
               return (
-                <Link
-                  key={atalho.href}
-                  to={atalho.href}
-                  className={cn(
-                    'group relative flex cursor-pointer items-start gap-4 overflow-hidden rounded-xl border border-navy-100 bg-white p-4 shadow-card transition duration-200 hover:shadow-card-hover',
-                    'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2',
-                    'dark:border-navy-800 dark:bg-navy-900',
-                    atalho.tom.hover,
-                    atalho.tom.foco,
-                  )}
-                >
-                  <span aria-hidden="true" className={cn('absolute inset-x-0 top-0 h-1', atalho.tom.barra)} />
-                  <span className={cn('mt-1 flex h-11 w-11 shrink-0 items-center justify-center rounded-lg', atalho.tom.icon)}>
-                    <Icone className="h-5 w-5" aria-hidden="true" />
-                  </span>
-                  <span className="min-w-0 flex-1">
-                    <span className="flex items-center justify-between gap-3">
-                      <span className="text-sm font-semibold text-navy-900 dark:text-white">{atalho.titulo}</span>
-                      <ArrowRight className="h-4 w-4 shrink-0 text-navy-300 transition-transform duration-200 group-hover:translate-x-0.5 group-hover:text-navy-700 dark:text-navy-500 dark:group-hover:text-white" aria-hidden="true" />
+                <li key={atalho.href}>
+                  <Link
+                    to={atalho.href}
+                    className={cn(
+                      'group relative flex h-full cursor-pointer flex-col overflow-hidden rounded-xl border border-navy-100 bg-white p-4 shadow-card transition duration-200 hover:shadow-card-hover',
+                      'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2',
+                      'dark:border-navy-800 dark:bg-navy-900',
+                      atalho.tom.hover,
+                      atalho.tom.foco,
+                    )}
+                  >
+                    <span aria-hidden="true" className={cn('absolute inset-x-0 top-0 h-1', atalho.tom.barra)} />
+                    <span className="mt-1 flex items-start justify-between gap-3">
+                      <span className={cn('flex h-10 w-10 items-center justify-center rounded-lg', atalho.tom.icon)}>
+                        <Icone className="h-5 w-5" aria-hidden="true" />
+                      </span>
+                      <ArrowRight className="mt-2 h-4 w-4 shrink-0 text-navy-300 transition-transform duration-200 group-hover:translate-x-0.5 group-hover:text-navy-700 dark:text-navy-500 dark:group-hover:text-white" aria-hidden="true" />
                     </span>
-                    <span className="mt-1 block text-sm leading-relaxed text-navy-500 dark:text-navy-300">{atalho.texto}</span>
-                  </span>
-                </Link>
+                    <span className="mt-3 text-sm font-semibold text-navy-900 dark:text-white">{atalho.titulo}</span>
+                    <span className="mt-1 text-sm leading-relaxed text-navy-500 dark:text-navy-300">{atalho.texto}</span>
+                  </Link>
+                </li>
               );
             })}
-          </div>
+          </ul>
         </section>
       )}
     </div>

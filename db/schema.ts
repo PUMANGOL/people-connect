@@ -100,7 +100,7 @@ export const utilizadores = pgTable('utilizadores', {
   createdAt: createdAt(),
 });
 
-/** Perfil pessoal editável por cada utilizador. foto_key e capa_key são chaves no bucket S3. */
+/** Perfil pessoal editável por cada utilizador. foto_key e capa_key são ids no Serviço de Ficheiros. */
 export const perfisUtilizador = pgTable('perfis_utilizador', {
   utilizadorId: uuid('utilizador_id').primaryKey().references(() => utilizadores.id, { onDelete: 'cascade' }),
   fotoKey: text('foto_key'),
@@ -452,7 +452,9 @@ export const admissaoSubmissoes = pgTable('admissao_submissoes', {
   estado: text('estado').notNull().default('submetido'),
   ficheiroNome: text('ficheiro_nome').notNull(),
   ficheiroTipo: text('ficheiro_tipo').notNull(),
-  ficheiro: bytea('ficheiro').notNull(),
+  /** Id no Serviço de Ficheiros. Os envios antigos continuam na coluna ficheiro. */
+  ficheiroId: text('ficheiro_id'),
+  ficheiro: bytea('ficheiro'),
   motivo: text('motivo'),
   submetidoEm: ts('submetido_em').notNull().defaultNow(),
   avaliadoEm: ts('avaliado_em'),
@@ -853,6 +855,8 @@ export const eventos = pgTable('eventos', {
   zona: text('zona'),
   // Link da reunião online (Microsoft Teams)
   linkOnline: text('link_online'),
+  // Capa do evento: link externo ou /api/ficheiros?key=… (Serviço de Ficheiros)
+  imagem: text('imagem'),
   inicio: ts('inicio').notNull(),
   fim: ts('fim'),
   diaInteiro: boolean('dia_inteiro').notNull().default(false),

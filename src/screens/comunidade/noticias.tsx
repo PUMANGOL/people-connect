@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
-import { ThumbsUp, MessageCircle, Pin, PinOff, Pencil, Trash2, Link2, Send } from 'lucide-react';
+import { ThumbsUp, MessageCircle, Pin, PinOff, Pencil, Trash2, Link2, Send, ImagePlus } from 'lucide-react';
 import { Button } from '@/src/components/ui/button';
 import { Input } from '@/src/components/ui/input';
 import { RichTextEditor, textoParaHtml } from '@/src/components/ui/rich-text-editor';
@@ -11,6 +11,8 @@ import {
   comunidadeService, type ComunidadePost, type ComunidadeComentario, type PostPayload,
 } from '@/src/services/comunidade.service';
 import { Checkbox } from '@/components/ui/checkbox';
+import { erroPedido } from '@/src/lib/erro-pedido';
+import { enviarFicheiro, REGRAS_FICHEIRO, validarFicheiro } from '@/src/services/ficheiros.service';
 
 /**
  * Notícias da Comunidade — peças partilhadas pelo feed (ComunidadePage)
@@ -25,9 +27,11 @@ const PERFIL_LABEL: Record<string, string> = {
   novo_colaborador: 'Colaborador',
 };
 
-// Só aceitamos o link da imagem (nenhum ficheiro é guardado na BD).
+const IMAGEM_APP = /^\/api\/ficheiros\?key=[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 function linkImagemValido(url: string): boolean {
-  return /^https?:\/\/\S+$/i.test(url.trim());
+  const valor = url.trim();
+  return /^https?:\/\/\S+$/i.test(valor) || IMAGEM_APP.test(valor);
 }
 
 /** Liga ao perfil da pessoa; sem id (conta removida) mostra só o conteúdo. */
@@ -49,11 +53,36 @@ export function PostForm({ post, onSaved, onCancel }: { post?: ComunidadePost; o
   const [fixado, setFixado] = useState(post?.fixado ?? false);
   const [saving, setSaving] = useState(false);
   const [imagemErro, setImagemErro] = useState(false);
+  const [aEnviarImagem, setAEnviarImagem] = useState(false);
+  const [pctImagem, setPctImagem] = useState(0);
+  const inputImagem = useRef<HTMLInputElement>(null);
   const linkImagem = imagem.trim();
+  const imagemCarregada = IMAGEM_APP.test(linkImagem);
   const linkInvalido = !!linkImagem && !linkImagemValido(linkImagem);
+
+  async function carregarImagem(file: File) {
+    const invalido = validarFicheiro('publicacao', file);
+    if (invalido) {
+      toast.error('Imagem não aceite', invalido);
+      return;
+    }
+    setAEnviarImagem(true);
+    setPctImagem(0);
+    try {
+      const enviado = await enviarFicheiro(file, { finalidade: 'publicacao', onProgresso: setPctImagem });
+      setImagem(`/api/ficheiros?key=${enviado.id}`);
+      setImagemErro(false);
+    } catch (e) {
+      const { msg, jaNotificado } = erroPedido(e, 'Não foi possível enviar a imagem.');
+      if (!jaNotificado) toast.error('Imagem não enviada', msg);
+    } finally {
+      setAEnviarImagem(false);
+    }
+  }
 
   async function submit(e: FormEvent) {
     e.preventDefault();
+    if (aEnviarImagem) return;
     if (!conteudo) {
       toast.error('Escreve o conteúdo da publicação');
       return;
@@ -77,8 +106,9 @@ export function PostForm({ post, onSaved, onCancel }: { post?: ComunidadePost; o
         setFixado(false);
       }
       onSaved();
-    } catch {
-      toast.error('Erro ao publicar', 'Tenta novamente.');
+    } catch (e) {
+      const { msg, jaNotificado } = erroPedido(e, 'Tenta novamente.');
+      if (!jaNotificado) toast.error('Erro ao publicar', msg);
     } finally {
       setSaving(false);
     }
@@ -100,19 +130,49 @@ export function PostForm({ post, onSaved, onCancel }: { post?: ComunidadePost; o
       />
 
       <div>
+        <input
+          ref={inputImagem}
+          type="file"
+          accept={REGRAS_FICHEIRO.publicacao.aceitar}
+          className="hidden"
+          onChange={(e) => {
+            const file = e.target.files?.[0];
+            e.target.value = '';
+            if (file) void carregarImagem(file);
+          }}
+        />
         <div className="relative">
           <Link2 className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-navy-300" />
           <Input
-            value={imagem}
+            value={imagemCarregada ? '' : imagem}
             onChange={(e) => {
               setImagem(e.target.value);
               setImagemErro(false);
             }}
-            placeholder="Link da imagem (opcional) — https://…"
+            placeholder={imagemCarregada ? 'Imagem carregada — cola um link para a substituir' : 'Link da imagem (opcional) — https://…'}
             maxLength={2000}
             className="pl-9"
             error={linkInvalido ? 'inválido' : undefined}
           />
+        </div>
+        <div className="mt-2 flex flex-wrap items-center gap-2">
+          <Button
+            type="button"
+            variant="secondary"
+            size="sm"
+            loading={aEnviarImagem}
+            disabled={saving}
+            leftIcon={<ImagePlus className="h-3.5 w-3.5" />}
+            onClick={() => inputImagem.current?.click()}
+          >
+            {aEnviarImagem ? `A enviar ${pctImagem}%` : 'Carregar imagem'}
+          </Button>
+          {linkImagem && (
+            <Button type="button" variant="ghost" size="sm" disabled={aEnviarImagem} onClick={() => { setImagem(''); setImagemErro(false); }}>
+              Remover
+            </Button>
+          )}
+          <span className="text-xs text-navy-400">{REGRAS_FICHEIRO.publicacao.descricao}</span>
         </div>
         {linkInvalido && (
           <p className="mt-1.5 text-xs text-error-600">O link tem de começar por http:// ou https://</p>
@@ -142,7 +202,7 @@ export function PostForm({ post, onSaved, onCancel }: { post?: ComunidadePost; o
               Cancelar
             </Button>
           )}
-          <Button type="submit" variant="accent" loading={saving}>
+          <Button type="submit" variant="accent" loading={saving} disabled={aEnviarImagem}>
             {post ? 'Guardar' : 'Publicar'}
           </Button>
         </div>

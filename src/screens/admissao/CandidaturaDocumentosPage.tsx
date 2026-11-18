@@ -4,6 +4,8 @@ import { Upload } from 'lucide-react';
 import { Button } from '@/src/components/ui/button';
 import { Badge } from '@/src/components/ui/badge';
 import type { ChecklistItem } from '@/src/services/admissao.service';
+import { enviarParaUrl } from '@/src/services/ficheiros.service';
+import { ErroVisivel } from '@/src/lib/erro-pedido';
 
 interface Portal {
   nome: string;
@@ -18,19 +20,6 @@ function tipoDe(file: File): string | null {
   if (file.type === 'image/png' || nome.endsWith('.png')) return 'image/png';
   if (file.type === 'image/webp' || nome.endsWith('.webp')) return 'image/webp';
   return null;
-}
-
-function lerBase64(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => {
-      const result = String(reader.result ?? '');
-      const comma = result.indexOf(',');
-      resolve(comma >= 0 ? result.slice(comma + 1) : result);
-    };
-    reader.onerror = () => reject(reader.error);
-    reader.readAsDataURL(file);
-  });
 }
 
 function etiqueta(item: ChecklistItem): { label: string; variant: 'neutral' | 'info' | 'success' | 'error' } {
@@ -80,15 +69,25 @@ export default function CandidaturaDocumentosPage() {
     setOcupado(item.id);
     setAvisos((atual) => ({ ...atual, [item.id]: '' }));
     try {
-      const conteudo = await lerBase64(file);
+      const prep = await fetch(`/api/candidatura/${token}/envio`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          admissao_documento_id: item.id,
+          tipo,
+          tamanho: file.size,
+        }),
+      });
+      const prepBody = await prep.json().catch(() => null) as { data?: { url?: string }; error?: string } | null;
+      if (!prep.ok || !prepBody?.data?.url) throw new Error(prepBody?.error || 'Não foi possível preparar o envio.');
+      const enviado = await enviarParaUrl(prepBody.data.url, file);
       const res = await fetch(`/api/candidatura/${token}/submeter`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           admissao_documento_id: item.id,
+          ficheiroId: enviado.id,
           nome: file.name,
-          tipo,
-          conteudo,
         }),
       });
       const body = await res.json().catch(() => null) as { data?: { itens: ChecklistItem[] }; error?: string } | null;
@@ -96,7 +95,8 @@ export default function CandidaturaDocumentosPage() {
       setPortal((atual) => atual && body?.data ? { ...atual, itens: body.data.itens } : atual);
       setFicheiros((atual) => ({ ...atual, [item.id]: null }));
     } catch (err) {
-      setAvisos((atual) => ({ ...atual, [item.id]: err instanceof Error ? err.message : 'Não foi possível entregar o documento.' }));
+      const msg = err instanceof ErroVisivel || err instanceof Error ? err.message : 'Não foi possível entregar o documento.';
+      setAvisos((atual) => ({ ...atual, [item.id]: msg }));
     } finally {
       setOcupado(null);
     }

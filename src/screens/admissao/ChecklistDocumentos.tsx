@@ -205,9 +205,26 @@ export function ChecklistDocumentos({
   async function descarregar(item: ChecklistItem) {
     try {
       const res = await fetch(`/api/admissao/${processoId}/documentos/${item.id}/ficheiro`, { credentials: 'include' });
+      const tipoResposta = res.headers.get('content-type') ?? '';
       if (!res.ok) {
-        const body = await res.json().catch(() => null) as { error?: string } | null;
+        const body = tipoResposta.includes('json')
+          ? await res.json().catch(() => null) as { error?: string } | null
+          : null;
         toast.error('Erro', body?.error || 'Não foi possível descarregar o ficheiro.');
+        return;
+      }
+      if (tipoResposta.includes('application/json')) {
+        const body = await res.json() as { data?: { url?: string } };
+        const destino = body.data?.url;
+        if (!destino) {
+          toast.error('Erro', 'Não foi possível descarregar o ficheiro.');
+          return;
+        }
+        const ligacao = document.createElement('a');
+        ligacao.href = destino;
+        ligacao.target = '_blank';
+        ligacao.rel = 'noopener noreferrer';
+        ligacao.click();
         return;
       }
       const blob = await res.blob();

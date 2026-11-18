@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useState, type FormEvent } from 'react';
+import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import {
-  CalendarPlus, Check, ChevronLeft, ChevronRight, Clock, MapPin, Pencil, Star, Trash2, Users, Video,
+  CalendarPlus, Check, ChevronLeft, ChevronRight, Clock, ImagePlus, Link2, MapPin, Pencil, Star, Trash2, Users, Video,
 } from 'lucide-react';
 import { Button } from '@/src/components/ui/button';
 import { FormField, Input, Textarea } from '@/src/components/ui/input';
@@ -14,6 +14,8 @@ import { feriadosDoAno, type Feriado } from '@/src/lib/feriados-angola';
 import {
   eventosService, type CategoriaEvento, type Evento, type EventoPayload, type ZonaEvento,
 } from '@/src/services/eventos.service';
+import { enviarFicheiro, REGRAS_FICHEIRO, validarFicheiro } from '@/src/services/ficheiros.service';
+import { erroPedido } from '@/src/lib/erro-pedido';
 
 // ============================================================
 // Categorias, zonas e formatação
@@ -40,6 +42,13 @@ export const ZONAS_EVENTO: Record<ZonaEvento, string> = {
   postos: 'Postos',
   online: 'Online',
 };
+
+const IMAGEM_APP = /^\/api\/ficheiros\?key=[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+function linkImagemValido(url: string): boolean {
+  const valor = url.trim();
+  return /^https?:\/\/\S+$/i.test(valor) || IMAGEM_APP.test(valor);
+}
 
 const DIAS_CURTOS = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
 const MESES_CURTOS = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
@@ -248,6 +257,9 @@ export function EventoDestaque({ evento, onPresenca, aGuardarPresenca, onAbrir, 
           </div>
 
           {evento.descricao && <p className="mt-3 line-clamp-3 text-sm leading-relaxed text-white/80">{evento.descricao}</p>}
+          {evento.imagem && (
+            <img src={evento.imagem} alt="" className="mt-4 max-h-48 w-full rounded-xl object-cover sm:max-h-56" />
+          )}
 
           <div className="mt-4 flex flex-wrap gap-2">
             <BotaoPresenca evento={evento} onPresenca={onPresenca} aGuardar={aGuardarPresenca} escuro />
@@ -561,6 +573,9 @@ export function EventoDetalhe({ evento, isAdmin, onFechar, onPresenca, aGuardarP
         )}
       </div>
       <h2 className="mt-3 text-xl font-extrabold leading-tight text-[#0A0A0A] dark:text-white">{evento.titulo}</h2>
+      {evento.imagem && (
+        <img src={evento.imagem} alt="" className="mt-4 max-h-64 w-full rounded-xl object-cover" />
+      )}
 
       <div className="mt-3 space-y-1.5 text-sm text-navy-600">
         <p className="flex items-center gap-2"><Clock className="h-4 w-4 text-navy-400" />{diaCurto(inicio)} {inicio.getFullYear()} · {horario(evento)}</p>
@@ -629,8 +644,16 @@ export function EventoForm({ evento, diaInicial, onFechar, onGuardado }: {
   const [zona, setZona] = useState<string>(evento?.zona ?? SEM_ZONA);
   const [link, setLink] = useState(evento?.link_online ?? '');
   const [descricao, setDescricao] = useState(evento?.descricao ?? '');
+  const [imagem, setImagem] = useState(evento?.imagem ?? '');
+  const [imagemErro, setImagemErro] = useState(false);
+  const [aEnviarImagem, setAEnviarImagem] = useState(false);
+  const [pctImagem, setPctImagem] = useState(0);
+  const inputImagem = useRef<HTMLInputElement>(null);
   const [destaque, setDestaque] = useState(evento?.destaque ?? false);
   const [aGuardar, setAGuardar] = useState(false);
+  const linkImagem = imagem.trim();
+  const imagemCarregada = IMAGEM_APP.test(linkImagem);
+  const linkInvalido = !!linkImagem && !linkImagemValido(linkImagem);
 
   // Ao mudar o início para depois do fim, o fim acompanha (mantendo a duração de 1 h).
   function mudarInicio(d: Date | null) {
@@ -638,9 +661,31 @@ export function EventoForm({ evento, diaInicial, onFechar, onGuardado }: {
     if (d && fim && fim < d) setFim(new Date(d.getTime() + 60 * 60 * 1000));
   }
 
+  async function carregarImagem(file: File) {
+    const invalido = validarFicheiro('publicacao', file);
+    if (invalido) {
+      toast.error('Imagem não aceite', invalido);
+      return;
+    }
+    setAEnviarImagem(true);
+    setPctImagem(0);
+    try {
+      const enviado = await enviarFicheiro(file, { finalidade: 'publicacao', onProgresso: setPctImagem });
+      setImagem(`/api/ficheiros?key=${enviado.id}`);
+      setImagemErro(false);
+    } catch (err) {
+      const { msg, jaNotificado } = erroPedido(err, 'Não foi possível enviar a imagem.');
+      if (!jaNotificado) toast.error('Imagem não enviada', msg);
+    } finally {
+      setAEnviarImagem(false);
+    }
+  }
+
   async function submit(e: FormEvent) {
     e.preventDefault();
+    if (aEnviarImagem) return;
     if (!titulo.trim()) return toast.error('Indica o título do evento');
+    if (linkInvalido) return toast.error('Link da imagem inválido', 'Usa um endereço que comece por http:// ou https://');
     if (!inicio) return toast.error('Indica a data de início');
     // Dia inteiro: do início do primeiro dia ao fim do último.
     const ini = diaInteiro ? new Date(inicio.getFullYear(), inicio.getMonth(), inicio.getDate(), 0, 0) : inicio;
@@ -656,6 +701,7 @@ export function EventoForm({ evento, diaInicial, onFechar, onGuardado }: {
       local: local.trim() || null,
       zona: zona === SEM_ZONA ? null : (zona as ZonaEvento),
       link_online: link.trim() || null,
+      imagem: linkImagem || null,
       inicio: ini.toISOString(),
       fim: fi ? fi.toISOString() : null,
       dia_inteiro: diaInteiro,
@@ -739,6 +785,67 @@ export function EventoForm({ evento, diaInicial, onFechar, onGuardado }: {
           <Textarea value={descricao} onChange={(e) => setDescricao(e.target.value)} maxLength={5000} autoResize placeholder="Agenda, objectivos, o que levar…" />
         </FormField>
 
+        <FormField label="Imagem" hint="Opcional. Aparece no cartão e no detalhe do evento.">
+          <input
+            ref={inputImagem}
+            type="file"
+            accept={REGRAS_FICHEIRO.publicacao.aceitar}
+            className="hidden"
+            onChange={(ev) => {
+              const file = ev.target.files?.[0];
+              ev.target.value = '';
+              if (file) void carregarImagem(file);
+            }}
+          />
+          <div className="relative">
+            <Link2 className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-navy-300" />
+            <Input
+              value={imagemCarregada ? '' : imagem}
+              onChange={(ev) => {
+                setImagem(ev.target.value);
+                setImagemErro(false);
+              }}
+              placeholder={imagemCarregada ? 'Imagem carregada — cola um link para a substituir' : 'Link da imagem (opcional) — https://…'}
+              maxLength={2000}
+              className="pl-9"
+            />
+          </div>
+          <div className="mt-2 flex flex-wrap items-center gap-2">
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              loading={aEnviarImagem}
+              disabled={aGuardar}
+              leftIcon={<ImagePlus className="h-3.5 w-3.5" />}
+              onClick={() => inputImagem.current?.click()}
+            >
+              {aEnviarImagem ? `A enviar ${pctImagem}%` : 'Carregar imagem'}
+            </Button>
+            {linkImagem && (
+              <Button type="button" variant="ghost" size="sm" disabled={aEnviarImagem} onClick={() => { setImagem(''); setImagemErro(false); }}>
+                Remover
+              </Button>
+            )}
+            <span className="text-xs text-navy-400">{REGRAS_FICHEIRO.publicacao.descricao}</span>
+          </div>
+          {linkInvalido && (
+            <p className="mt-1.5 text-xs text-error-600">O link tem de começar por http:// ou https://</p>
+          )}
+          {linkImagem && !linkInvalido && (
+            imagemErro ? (
+              <p className="mt-1.5 text-xs text-warning-600">Não foi possível pré-visualizar a imagem. Confirma se o link é público e aponta para uma imagem.</p>
+            ) : (
+              <img
+                src={linkImagem}
+                alt=""
+                onError={() => setImagemErro(true)}
+                className="mt-2 max-h-48 w-full rounded-lg object-cover"
+              />
+            )
+          )}
+        </FormField>
+
         <label className="inline-flex cursor-pointer items-center gap-2.5 text-sm text-navy-700">
           <Checkbox checked={destaque} onCheckedChange={(v) => setDestaque(v === true)} />
           Fixar no cartão em destaque
@@ -746,7 +853,7 @@ export function EventoForm({ evento, diaInicial, onFechar, onGuardado }: {
 
         <div className="flex justify-end gap-2 border-t border-navy-50 pt-4">
           <Button type="button" variant="ghost" onClick={onFechar}>Cancelar</Button>
-          <Button type="submit" variant="primary" loading={aGuardar}>{evento ? 'Guardar' : 'Criar evento'}</Button>
+          <Button type="submit" variant="primary" loading={aGuardar} disabled={aEnviarImagem}>{evento ? 'Guardar' : 'Criar evento'}</Button>
         </div>
       </form>
     </Dialog>

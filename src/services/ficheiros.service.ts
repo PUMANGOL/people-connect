@@ -1,7 +1,7 @@
 import { apiClient } from './api.client';
 import { ErroVisivel } from '@/src/lib/erro-pedido';
 
-export type FinalidadeFicheiro = 'foto' | 'capa' | 'documento';
+export type FinalidadeFicheiro = 'foto' | 'capa' | 'documento' | 'publicacao';
 
 const MB = 1024 * 1024;
 const IMAGENS = ['image/jpeg', 'image/png', 'image/webp'];
@@ -22,6 +22,7 @@ const TIPO_POR_EXTENSAO: Record<string, string> = {
 export const REGRAS_FICHEIRO: Record<FinalidadeFicheiro, { tipos: string[]; max: number; aceitar: string; descricao: string }> = {
   foto: { tipos: IMAGENS, max: 5 * MB, aceitar: IMAGENS.join(','), descricao: 'JPG, PNG ou WEBP até 5 MB' },
   capa: { tipos: IMAGENS, max: 8 * MB, aceitar: IMAGENS.join(','), descricao: 'JPG, PNG ou WEBP até 8 MB' },
+  publicacao: { tipos: IMAGENS, max: 8 * MB, aceitar: IMAGENS.join(','), descricao: 'JPG, PNG ou WEBP até 8 MB' },
   documento: {
     tipos: Object.values(TIPO_POR_EXTENSAO),
     max: 15 * MB,
@@ -52,15 +53,65 @@ export function formatarTamanho(bytes: number): string {
   return `${(bytes / MB).toFixed(1).replace('.', ',')} MB`;
 }
 
-interface EnvioAssinado {
-  url: string;
-  fields: Record<string, string>;
-  key: string;
+export interface FicheiroEnviado {
+  id: string;
+  publicUrl: string | null;
+}
+
+/** O serviço guarda o nome em ASCII. O nome original fica na base de dados da app. */
+function nomeAscii(nome: string): string {
+  const limpo = nome.normalize('NFD').replace(/\p{M}/gu, '').replace(/[^A-Za-z0-9._ -]/g, '_');
+  return limpo.replace(/^\.+/, '') || 'ficheiro';
+}
+
+function detalheRecusa(corpo: string): string {
+  const omissao = 'O armazenamento recusou o ficheiro. Confirma o formato e o tamanho.';
+  try {
+    const body = JSON.parse(corpo) as { detail?: string };
+    const detalhe = body.detail?.trim() ?? '';
+    if (detalhe && detalhe.length <= 180 && !/https?:|fsk_|api-key/i.test(detalhe)) return detalhe;
+  } catch {
+    // A resposta nem sempre é JSON.
+  }
+  return omissao;
+}
+
+/** Envia o ficheiro para um link assinado. Não definir Content-Type: o browser põe o boundary. */
+export function enviarParaUrl(
+  url: string,
+  file: File,
+  onProgresso?: (percentagem: number) => void,
+): Promise<FicheiroEnviado> {
+  const form = new FormData();
+  form.append('file', file, nomeAscii(file.name));
+
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open('POST', url);
+    xhr.upload.onprogress = (e) => {
+      if (e.lengthComputable) onProgresso?.(Math.round((e.loaded / e.total) * 100));
+    };
+    xhr.onload = () => {
+      if (xhr.status < 200 || xhr.status >= 300) {
+        reject(new ErroVisivel(detalheRecusa(xhr.responseText)));
+        return;
+      }
+      try {
+        const body = JSON.parse(xhr.responseText) as { id?: string; publicUrl?: string | null };
+        if (!body.id) reject(new ErroVisivel('O serviço não devolveu o identificador do ficheiro.'));
+        else resolve({ id: body.id, publicUrl: body.publicUrl ?? null });
+      } catch {
+        reject(new ErroVisivel('Resposta inválida do serviço de ficheiros.'));
+      }
+    };
+    xhr.onerror = () => reject(new ErroVisivel('Sem ligação ao armazenamento de ficheiros. Tenta novamente.'));
+    xhr.send(form);
+  });
 }
 
 /**
- * Envia o ficheiro directamente para o bucket com o POST assinado pela API.
- * Devolve a chave do objecto, que depois se confirma no endpoint da finalidade.
+ * Pede um link assinado à app e envia o ficheiro directamente para o serviço.
+ * Devolve o id, que depois se confirma no endpoint da finalidade.
  */
 export async function enviarFicheiro(
   file: File,
@@ -70,34 +121,14 @@ export async function enviarFicheiro(
     documentoChave?: string;
     onProgresso?: (percentagem: number) => void;
   },
-): Promise<string> {
+): Promise<FicheiroEnviado> {
   const tipo = tipoDoFicheiro(file);
-  const { data } = await apiClient.post<{ data: EnvioAssinado }>('/ficheiros/envio', {
+  const { data } = await apiClient.post<{ data: { url: string } }>('/ficheiros/envio', {
     finalidade: opcoes.finalidade,
     tipo,
     tamanho: file.size,
     progressoId: opcoes.progressoId,
     documentoChave: opcoes.documentoChave,
   });
-  const { url, fields, key } = data.data;
-
-  const form = new FormData();
-  for (const [campo, valor] of Object.entries(fields)) form.append(campo, valor);
-  // O S3 exige o ficheiro como último campo do formulário.
-  form.append('file', file);
-
-  await new Promise<void>((resolve, reject) => {
-    const xhr = new XMLHttpRequest();
-    xhr.open('POST', url);
-    xhr.upload.onprogress = (e) => {
-      if (e.lengthComputable) opcoes.onProgresso?.(Math.round((e.loaded / e.total) * 100));
-    };
-    xhr.onload = () => {
-      if (xhr.status >= 200 && xhr.status < 300) resolve();
-      else reject(new ErroVisivel('O armazenamento recusou o ficheiro. Confirma o formato e o tamanho.'));
-    };
-    xhr.onerror = () => reject(new ErroVisivel('Sem ligação ao armazenamento de ficheiros. Tenta novamente.'));
-    xhr.send(form);
-  });
-  return key;
+  return enviarParaUrl(data.data.url, file, opcoes.onProgresso);
 }

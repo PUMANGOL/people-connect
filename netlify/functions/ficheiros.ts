@@ -1,21 +1,60 @@
 import type { Config } from './_shared/route-config';
 import { sql, jsonResponse, errorResponse, handleCors, publicErrorMessage } from './_shared/db';
-import { requireAuth, authErrorResponse, AuthError } from './_shared/auth';
+import { requireAuth, authErrorResponse, AuthError, type AuthUser } from './_shared/auth';
 import { podeVerColaborador } from './_shared/acesso-colaborador';
 import { lerDocumentosPedidos } from './_shared/anexos';
-import { novaChave, prepararEnvio, StorageError, urlLeitura, validarFicheiro, type Finalidade } from './_shared/storage';
+import {
+  ID_FICHEIRO,
+  imagemPorConfirmar,
+  linkEnvio,
+  StorageError,
+  urlLeitura,
+  validarFicheiro,
+  type Finalidade,
+} from './_shared/storage';
 
 /**
- * Ficheiros no bucket S3.
+ * Ficheiros no Serviço de Ficheiros Pumangol.
  * POST /api/ficheiros/envio   { finalidade, tipo, tamanho, progressoId?, documentoChave? }
- *   → { url, fields, key }: o browser faz POST multipart directamente para o bucket.
- *   Depois confirma em /api/perfil/imagem (foto, capa) ou /api/etapa-anexos (documento).
+ *   → { url }: o browser faz POST multipart directamente para esse link.
+ *   Depois confirma em /api/perfil/imagem (foto), /api/etapa-anexos (documento)
+ *   ou /api/comunidade/posts (imagem da publicação).
  * GET  /api/ficheiros?key=…&descarregar=1
  *   → 302 para um URL assinado, depois de validar quem pode ler.
  */
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-const FINALIDADES: Finalidade[] = ['foto', 'capa', 'documento'];
+const FINALIDADES: Finalidade[] = ['foto', 'capa', 'documento', 'publicacao'];
+
+async function podeLer(user: AuthUser, key: string): Promise<{ nome?: string } | 'negado' | 'ausente'> {
+  const perfil = await sql`SELECT 1 FROM perfis_utilizador WHERE foto_key = ${key} OR capa_key = ${key} LIMIT 1`;
+  if (perfil.length) return {};
+
+  const anexo = await sql`
+    SELECT a.ficheiro_nome, p.colaborador_id
+      FROM etapa_anexos a
+      JOIN progresso_onboarding p ON p.id = a.progresso_id
+     WHERE a.ficheiro_key = ${key}
+     LIMIT 1
+  `;
+  if (anexo.length) {
+    if (!(await podeVerColaborador(user, anexo[0].colaborador_id as string))) return 'negado';
+    return { nome: anexo[0].ficheiro_nome as string };
+  }
+
+  const publicacao = await sql`
+    SELECT 1 FROM comunidade_posts WHERE imagem = ${`/api/ficheiros?key=${key}`} LIMIT 1
+  `;
+  if (publicacao.length) return {};
+
+  const evento = await sql`
+    SELECT 1 FROM eventos WHERE imagem = ${`/api/ficheiros?key=${key}`} LIMIT 1
+  `;
+  if (evento.length) return {};
+
+  if (await imagemPorConfirmar(key, user.id)) return {};
+  return 'ausente';
+}
 
 export default async (req: Request): Promise<Response> => {
   const cors = handleCors(req);
@@ -36,8 +75,11 @@ export default async (req: Request): Promise<Response> => {
       validarFicheiro(finalidade, tipo, tamanho);
 
       if (finalidade === 'foto') {
-        const key = novaChave(`perfis/${user.id}/foto`, tipo);
-        return jsonResponse({ data: await prepararEnvio('foto', key, tipo) });
+        return jsonResponse({ data: await linkEnvio(`perfis/${user.id}/foto`, user.id, 'PRIVATE') });
+      }
+
+      if (finalidade === 'publicacao') {
+        return jsonResponse({ data: await linkEnvio(`comunidade/${user.id}`, user.id, 'PRIVATE') });
       }
 
       const progressoId = typeof body.progressoId === 'string' ? body.progressoId : '';
@@ -60,14 +102,25 @@ export default async (req: Request): Promise<Response> => {
       const pedidos = lerDocumentosPedidos(etapa.documentos_pedidos);
       if (!pedidos.some((d) => d.chave === documentoChave)) return errorResponse('Este documento não é pedido nesta etapa.', 400);
 
-      const key = novaChave(`trilhos/${etapa.colaborador_id}/${progressoId}`, tipo);
-      return jsonResponse({ data: await prepararEnvio('documento', key, tipo) });
+      return jsonResponse({ data: await linkEnvio(`trilhos/${etapa.colaborador_id}/${progressoId}`, user.id, 'PRIVATE') });
     }
 
     if (req.method === 'GET' && !accao) {
       const key = url.searchParams.get('key') ?? '';
       const descarregar = url.searchParams.get('descarregar') === '1';
       if (!key || key.includes('..')) return errorResponse('Ficheiro não encontrado', 404);
+
+      if (ID_FICHEIRO.test(key)) {
+        const leitura = await podeLer(user, key);
+        if (leitura === 'negado') return errorResponse('Sem permissão para este ficheiro.', 403);
+        if (leitura === 'ausente') return errorResponse('Ficheiro não encontrado', 404);
+        const destino = await urlLeitura(key, { nome: leitura.nome, descarregar });
+        return new Response(null, {
+          status: 302,
+          headers: { Location: destino, 'Cache-Control': 'private, max-age=60' },
+        });
+      }
+
       const [raiz, dono] = key.split('/');
 
       let nome: string | undefined;

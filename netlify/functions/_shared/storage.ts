@@ -1,13 +1,18 @@
-import { randomUUID } from 'node:crypto';
-import { DeleteObjectCommand, GetObjectCommand, HeadObjectCommand, S3Client } from '@aws-sdk/client-s3';
-import { createPresignedPost } from '@aws-sdk/s3-presigned-post';
+import { DeleteObjectCommand, GetObjectCommand, S3Client } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
+import {
+  apagarNoServico,
+  criarLinkUpload,
+  ErroServicoFicheiros,
+  informacaoFicheiro,
+  linkLeitura,
+  type Visibilidade,
+} from './servico-ficheiros';
 
 /**
- * Ficheiros num bucket S3 (MinIO em desenvolvimento, S3 em PROD).
- * O browser envia directamente para o bucket com um POST assinado (tamanho e tipo
- * validados pelo próprio S3) e lê através de URLs assinados de curta duração.
- * O bucket é privado: a app decide quem pode ler antes de assinar.
+ * Ficheiros novos vão para o Serviço de Ficheiros Pumangol. Na base de dados fica só o id.
+ * O browser pede um link assinado à app e envia o ficheiro directamente para o serviço.
+ * Chaves antigas (com "/") continuam a ser lidas no bucket S3, quando estiver configurado.
  */
 
 const MB = 1024 * 1024;
@@ -22,23 +27,16 @@ const DOCUMENTOS = [
   'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
 ];
 
-export type Finalidade = 'foto' | 'capa' | 'documento';
+export type Finalidade = 'foto' | 'capa' | 'documento' | 'publicacao' | 'admissao';
+
+export const ID_FICHEIRO = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export const REGRAS: Record<Finalidade, { tipos: string[]; max: number; descricao: string }> = {
   foto: { tipos: IMAGENS, max: 5 * MB, descricao: 'JPG, PNG ou WEBP até 5 MB' },
   capa: { tipos: IMAGENS, max: 8 * MB, descricao: 'JPG, PNG ou WEBP até 8 MB' },
+  publicacao: { tipos: IMAGENS, max: 8 * MB, descricao: 'JPG, PNG ou WEBP até 8 MB' },
+  admissao: { tipos: [...IMAGENS, 'application/pdf'], max: 8 * MB, descricao: 'PDF, JPG, PNG ou WEBP até 8 MB' },
   documento: { tipos: DOCUMENTOS, max: 15 * MB, descricao: 'PDF, imagem, Word ou Excel até 15 MB' },
-};
-
-const EXTENSOES: Record<string, string> = {
-  'image/jpeg': 'jpg',
-  'image/png': 'png',
-  'image/webp': 'webp',
-  'application/pdf': 'pdf',
-  'application/msword': 'doc',
-  'application/vnd.openxmlformats-officedocument.wordprocessingml.document': 'docx',
-  'application/vnd.ms-excel': 'xls',
-  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': 'xlsx',
 };
 
 export class StorageError extends Error {
@@ -75,7 +73,7 @@ function criarCliente(endpoint: string | undefined): S3Client {
 function cfg(): Configuracao {
   if (_cfg) return _cfg;
   const bucket = process.env.S3_BUCKET;
-  if (!bucket) throw new StorageError('O armazenamento de ficheiros não está configurado.', 503);
+  if (!bucket) throw new StorageError('Este ficheiro antigo não está no serviço de ficheiros.', 404);
   const endpoint = process.env.S3_ENDPOINT;
   const endpointPublico = process.env.S3_PUBLIC_ENDPOINT || endpoint;
   const interno = criarCliente(endpoint);
@@ -96,42 +94,88 @@ export function validarFicheiro(finalidade: Finalidade, tipo: string, tamanho: n
   if (tamanho > regra.max) throw new StorageError(`O ficheiro excede o limite. Usa ${regra.descricao}.`);
 }
 
-/** Chave única no bucket: `${prefixo}/${uuid}.${ext}`. O nome original fica na BD. */
-export function novaChave(prefixo: string, tipo: string): string {
-  return `${prefixo}/${randomUUID()}.${EXTENSOES[tipo] ?? 'bin'}`;
+function erroDeServico(err: unknown): never {
+  if (err instanceof ErroServicoFicheiros) throw new StorageError(err.message, err.status);
+  throw err;
 }
 
-/** POST assinado (5 min) que só aceita esta chave, este tipo e até ao tamanho máximo da finalidade. */
-export async function prepararEnvio(finalidade: Finalidade, key: string, tipo: string) {
-  const { bucket, publico } = cfg();
-  const { url, fields } = await createPresignedPost(publico, {
-    Bucket: bucket,
-    Key: key,
-    Conditions: [
-      ['content-length-range', 1, REGRAS[finalidade].max],
-      ['eq', '$Content-Type', tipo],
-    ],
-    Fields: { 'Content-Type': tipo },
-    Expires: 300,
-  });
-  return { url, fields, key };
-}
-
-/** Confirma que o objecto chegou ao bucket e devolve o tipo e o tamanho reais. */
-export async function lerMetadados(key: string): Promise<{ tipo: string; tamanho: number } | null> {
-  const { bucket, interno } = cfg();
+/** Link assinado (5 min) para o browser enviar o ficheiro sem passar pela app. */
+export async function linkEnvio(folder: string, uploadedBy: string, visibility: Visibilidade = 'PRIVATE') {
   try {
-    const r = await interno.send(new HeadObjectCommand({ Bucket: bucket, Key: key }));
-    return { tipo: r.ContentType ?? 'application/octet-stream', tamanho: Number(r.ContentLength ?? 0) };
+    const link = await criarLinkUpload(folder, uploadedBy, visibility, 300);
+    return { url: link.url };
   } catch (err) {
-    const status = (err as { $metadata?: { httpStatusCode?: number } }).$metadata?.httpStatusCode;
-    if (status === 404 || (err as Error).name === 'NotFound') return null;
-    throw err;
+    erroDeServico(err);
   }
 }
 
-/** URL de leitura assinado (10 min). Com `nome`, o browser descarrega com esse nome. */
+/**
+ * Confirma um id vindo do browser: a pasta, o autor e a visibilidade têm de ser os esperados.
+ * Se o conteúdo não cumprir as regras, o ficheiro é apagado no serviço.
+ */
+export async function confirmarEnvio(
+  finalidade: Finalidade,
+  key: string,
+  folder: string,
+  uploadedBy: string,
+  visibility: Visibilidade = 'PRIVATE',
+) {
+  if (!ID_FICHEIRO.test(key)) throw new StorageError('Ficheiro inválido.');
+  let info;
+  try {
+    info = await informacaoFicheiro(key);
+  } catch (err) {
+    if (err instanceof ErroServicoFicheiros && err.status === 404) {
+      throw new StorageError('O envio do ficheiro não terminou. Tenta novamente.');
+    }
+    erroDeServico(err);
+  }
+  if (info.folder !== folder || info.uploadedBy !== uploadedBy || info.visibility !== visibility) {
+    throw new StorageError('Ficheiro inválido.');
+  }
+  try {
+    validarFicheiro(finalidade, info.contentType, info.sizeBytes);
+  } catch (err) {
+    await apagarNoServico(key);
+    throw err;
+  }
+  return { tipo: info.contentType, tamanho: info.sizeBytes, publicUrl: info.publicUrl };
+}
+
+/** Apaga um envio que a app não vai guardar, só se a pasta e o autor coincidirem. */
+export async function descartarEnvio(key: string, folder: string, uploadedBy: string): Promise<void> {
+  if (!ID_FICHEIRO.test(key)) return;
+  try {
+    const info = await informacaoFicheiro(key);
+    if (info.folder !== folder || info.uploadedBy !== uploadedBy) return;
+    await apagarNoServico(key);
+  } catch (err) {
+    const estado = err instanceof ErroServicoFicheiros ? err.status : 0;
+    if (estado !== 404) console.error('[ficheiros] descartar', estado || 'sem resposta');
+  }
+}
+
+/** Imagem de publicação ainda não gravada: só o autor a pode pré-visualizar. */
+export async function imagemPorConfirmar(key: string, userId: string): Promise<boolean> {
+  try {
+    const info = await informacaoFicheiro(key);
+    return info.folder === `comunidade/${userId}` && info.uploadedBy === userId && info.visibility === 'PRIVATE';
+  } catch (err) {
+    if (err instanceof ErroServicoFicheiros && err.status === 404) return false;
+    erroDeServico(err);
+  }
+}
+
+/** URL de leitura assinado (5 min no serviço, 10 min no S3 antigo). */
 export async function urlLeitura(key: string, opcoes: { nome?: string; descarregar?: boolean } = {}): Promise<string> {
+  if (ID_FICHEIRO.test(key)) {
+    try {
+      const link = await linkLeitura(key, 300);
+      return opcoes.descarregar ? `${link.url}${link.url.includes('?') ? '&' : '?'}download=true` : link.url;
+    } catch (err) {
+      erroDeServico(err);
+    }
+  }
   const { bucket, publico } = cfg();
   const nomeSeguro = opcoes.nome?.replace(/["\\\r\n]/g, '_');
   const disposition = nomeSeguro
@@ -147,6 +191,10 @@ export async function urlLeitura(key: string, opcoes: { nome?: string; descarreg
 /** Remove o objecto; falhas ficam no log para não bloquear a operação na BD. */
 export async function apagarObjecto(key: string | null | undefined): Promise<void> {
   if (!key) return;
+  if (ID_FICHEIRO.test(key)) {
+    await apagarNoServico(key);
+    return;
+  }
   try {
     const { bucket, interno } = cfg();
     await interno.send(new DeleteObjectCommand({ Bucket: bucket, Key: key }));
@@ -155,18 +203,3 @@ export async function apagarObjecto(key: string | null | undefined): Promise<voi
   }
 }
 
-/** Valida um objecto acabado de enviar: existe, está dentro do prefixo esperado e cumpre as regras. */
-export async function confirmarEnvio(finalidade: Finalidade, key: string, prefixo: string) {
-  if (typeof key !== 'string' || !key.startsWith(`${prefixo}/`) || key.includes('..')) {
-    throw new StorageError('Ficheiro inválido.');
-  }
-  const meta = await lerMetadados(key);
-  if (!meta) throw new StorageError('O envio do ficheiro não terminou. Tenta novamente.');
-  try {
-    validarFicheiro(finalidade, meta.tipo, meta.tamanho);
-  } catch (err) {
-    await apagarObjecto(key);
-    throw err;
-  }
-  return meta;
-}

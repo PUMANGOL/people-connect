@@ -6,6 +6,7 @@ import { aplicarAccao, type EtapaRuntime, type ProcessoRuntime } from '@/src/lib
 import { appBaseUrl } from '@/src/lib/app-url';
 import { emailChecklistDocumentos } from './_shared/email-templates';
 import { mailHasBanner, sendMail } from './_shared/mail';
+import { apagarObjecto, confirmarEnvio, linkEnvio, StorageError, urlLeitura, validarFicheiro } from './_shared/storage';
 
 /**
  * Checklist documental da admissão e portal do candidato.
@@ -18,7 +19,8 @@ import { mailHasBanner, sendMail } from './_shared/mail';
  *   GET    /api/admissao/:id/documentos/:docId/ficheiro
  *   POST   /api/admissao/:id/documentos/:docId/avaliar
  *   GET    /api/candidatura/:token
- *   POST   /api/candidatura/:token/submeter
+ *   POST   /api/candidatura/:token/envio     — link assinado para o candidato enviar o ficheiro
+ *   POST   /api/candidatura/:token/submeter  — { ficheiroId, nome } ou, em legado, o conteúdo em base64
  */
 
 const MAX_BYTES = 8 * 1024 * 1024;
@@ -228,6 +230,25 @@ function anexoCandidato(base64: unknown, nome: unknown, tipo: unknown): { buffer
   return { buffer, nome: seguro, tipo: detectado };
 }
 
+function nomeSeguro(nome: unknown): string | null {
+  if (typeof nome !== 'string') return null;
+  const base = nome.split(/[/\\]/).pop()?.trim() ?? '';
+  const seguro = base.replace(/[^\w.\- ()áàâãéêíóôõúçÁÀÂÃÉÊÍÓÔÕÚÇ]+/g, '_').slice(0, 120);
+  if (!seguro || seguro === '.' || seguro === '..') return null;
+  return seguro;
+}
+
+async function documentoDaChecklist(processoId: string, docId: string) {
+  const docs = await sql<{ id: string; estado: string | null }[]>`
+    SELECT d.id, s.estado
+    FROM admissao_documentos d
+    LEFT JOIN admissao_submissoes s ON s.admissao_documento_id = d.id
+    WHERE d.id = ${docId} AND d.processo_id = ${processoId}
+    LIMIT 1
+  `;
+  return docs[0] ?? null;
+}
+
 async function tentarConcluirSubmissao(processo: ProcessoMinimo) {
   if (processo.etapa_actual !== 'ADM-007' || fechado(processo.estado)) return;
   const linhas = await sql<{ obrigatorio: boolean; estado: string | null }[]>`
@@ -262,7 +283,7 @@ async function tentarConcluirSubmissao(processo: ProcessoMinimo) {
 async function candidatura(req: Request, parts: string[]): Promise<Response> {
   const token = parts[2] ?? '';
   const sub = parts[3] ?? null;
-  if (!token || parts.length > 4 || (sub && sub !== 'submeter')) return errorResponse('Método não suportado', 405);
+  if (!token || parts.length > 4 || (sub && sub !== 'submeter' && sub !== 'envio')) return errorResponse('Método não suportado', 405);
 
   const processos = await sql<ProcessoMinimo[]>`
     SELECT id, nome, email, funcao, estado, etapa_actual, semaforo, bloqueado, bloqueio_motivo,
@@ -283,23 +304,62 @@ async function candidatura(req: Request, parts: string[]): Promise<Response> {
     });
   }
 
+  if (req.method === 'POST' && sub === 'envio') {
+    const body = await req.json().catch(() => null) as Record<string, unknown> | null;
+    const docId = texto(body?.admissao_documento_id);
+    if (!docId) return errorResponse('Indique o documento.', 400);
+    validarFicheiro('admissao', typeof body?.tipo === 'string' ? body.tipo : '', Number(body?.tamanho));
+    const docs = await documentoDaChecklist(processo.id, docId);
+    if (!docs) return errorResponse('Documento não encontrado nesta checklist.', 404);
+    if (docs.estado === 'validado') return errorResponse('Este documento já foi validado e não pode ser substituído.', 409);
+    const link = await linkEnvio(`admissao/${processo.id}/${docId}`, processo.id, 'PRIVATE');
+    return jsonResponse({ data: link });
+  }
+
   if (req.method === 'POST' && sub === 'submeter') {
     const body = await req.json().catch(() => null) as Record<string, unknown> | null;
     const docId = texto(body?.admissao_documento_id);
     if (!docId) return errorResponse('Indique o documento.', 400);
+    const docs = await documentoDaChecklist(processo.id, docId);
+    if (!docs) return errorResponse('Documento não encontrado nesta checklist.', 404);
+    if (docs.estado === 'validado') return errorResponse('Este documento já foi validado e não pode ser substituído.', 409);
+
+    const ficheiroId = typeof body?.ficheiroId === 'string' ? body.ficheiroId : '';
+    if (ficheiroId) {
+      const nome = nomeSeguro(body?.nome);
+      if (!nome) return errorResponse('Indique o nome do ficheiro.', 400);
+      const meta = await confirmarEnvio('admissao', ficheiroId, `admissao/${processo.id}/${docId}`, processo.id);
+      const anterior = await sql<{ ficheiro_id: string | null }[]>`
+        SELECT ficheiro_id FROM admissao_submissoes WHERE admissao_documento_id = ${docId}
+      `;
+      await sql`
+        INSERT INTO admissao_submissoes (
+          admissao_documento_id, estado, ficheiro_nome, ficheiro_tipo, ficheiro, ficheiro_id, motivo, submetido_em, avaliado_em
+        ) VALUES (
+          ${docId}, 'submetido', ${nome}, ${meta.tipo}, NULL, ${ficheiroId}, NULL, NOW(), NULL
+        )
+        ON CONFLICT (admissao_documento_id) DO UPDATE SET
+          estado = 'submetido',
+          ficheiro_nome = EXCLUDED.ficheiro_nome,
+          ficheiro_tipo = EXCLUDED.ficheiro_tipo,
+          ficheiro = NULL,
+          ficheiro_id = EXCLUDED.ficheiro_id,
+          motivo = NULL,
+          submetido_em = NOW(),
+          avaliado_em = NULL
+      `;
+      const antigo = anterior[0]?.ficheiro_id;
+      if (antigo && antigo !== ficheiroId) await apagarObjecto(antigo);
+      await tentarConcluirSubmissao(processo);
+      return jsonResponse({ data: { itens: await itensDe(processo.id) } });
+    }
+
     const anexo = anexoCandidato(body?.conteudo, body?.nome, body?.tipo);
     if (!anexo) return errorResponse('Envie um PDF, JPG, PNG ou WEBP até 8 MB.', 400);
 
-    const docs = await sql<{ id: string; estado: string | null }[]>`
-      SELECT d.id, s.estado
-      FROM admissao_documentos d
-      LEFT JOIN admissao_submissoes s ON s.admissao_documento_id = d.id
-      WHERE d.id = ${docId} AND d.processo_id = ${processo.id}
-      LIMIT 1
+    const anterior = await sql<{ ficheiro_id: string | null }[]>`
+      SELECT ficheiro_id FROM admissao_submissoes WHERE admissao_documento_id = ${docId}
     `;
-    if (!docs.length) return errorResponse('Documento não encontrado nesta checklist.', 404);
-    if (docs[0].estado === 'validado') return errorResponse('Este documento já foi validado e não pode ser substituído.', 409);
-
     await sql`
       INSERT INTO admissao_submissoes (
         admissao_documento_id, estado, ficheiro_nome, ficheiro_tipo, ficheiro, motivo, submetido_em, avaliado_em
@@ -311,10 +371,12 @@ async function candidatura(req: Request, parts: string[]): Promise<Response> {
         ficheiro_nome = EXCLUDED.ficheiro_nome,
         ficheiro_tipo = EXCLUDED.ficheiro_tipo,
         ficheiro = EXCLUDED.ficheiro,
+        ficheiro_id = NULL,
         motivo = NULL,
         submetido_em = NOW(),
         avaliado_em = NULL
     `;
+    if (anterior[0]?.ficheiro_id) await apagarObjecto(anterior[0].ficheiro_id);
     await tentarConcluirSubmissao(processo);
     return jsonResponse({ data: { itens: await itensDe(processo.id) } });
   }
@@ -341,8 +403,8 @@ async function admin(req: Request): Promise<Response> {
   }
 
   if (method === 'GET' && docId && acao === 'ficheiro') {
-    const rows = await sql<{ ficheiro: Buffer; ficheiro_nome: string; ficheiro_tipo: string }[]>`
-      SELECT s.ficheiro, s.ficheiro_nome, s.ficheiro_tipo
+    const rows = await sql<{ ficheiro: Buffer | null; ficheiro_id: string | null; ficheiro_nome: string; ficheiro_tipo: string }[]>`
+      SELECT s.ficheiro, s.ficheiro_id, s.ficheiro_nome, s.ficheiro_tipo
       FROM admissao_submissoes s
       JOIN admissao_documentos d ON d.id = s.admissao_documento_id
       WHERE d.id = ${docId} AND d.processo_id = ${id}
@@ -350,6 +412,11 @@ async function admin(req: Request): Promise<Response> {
     `;
     const ficheiro = rows[0];
     if (!ficheiro) return errorResponse('Ainda não há ficheiro neste documento.', 404);
+    if (ficheiro.ficheiro_id) {
+      const destino = await urlLeitura(ficheiro.ficheiro_id, { descarregar: true });
+      return jsonResponse({ data: { url: destino } });
+    }
+    if (!ficheiro.ficheiro) return errorResponse('Ainda não há ficheiro neste documento.', 404);
     const nome = ficheiro.ficheiro_nome.replace(/["\r\n]/g, '').slice(0, 120) || 'documento';
     const bytes = Buffer.isBuffer(ficheiro.ficheiro) ? ficheiro.ficheiro : Buffer.from(ficheiro.ficheiro);
     return new Response(new Uint8Array(bytes), {
@@ -524,6 +591,7 @@ export default async (req: Request): Promise<Response> => {
     return await admin(req);
   } catch (err) {
     if (err instanceof AuthError) return authErrorResponse(err);
+    if (err instanceof StorageError) return errorResponse(err.message, err.status);
     console.error('[admissao-documentos]', err);
     return errorResponse(publicErrorMessage(err, 'Erro interno'));
   }
@@ -537,6 +605,7 @@ export const config: Config = {
     '/api/admissao/:id/documentos/:docId/ficheiro',
     '/api/admissao/:id/documentos/:docId/avaliar',
     '/api/candidatura/:token',
+    '/api/candidatura/:token/envio',
     '/api/candidatura/:token/submeter',
   ],
 };

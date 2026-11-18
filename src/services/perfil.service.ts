@@ -65,10 +65,10 @@ function data<T>(p: Promise<{ data: { data: T } }>): Promise<T> {
 export const perfilService = {
   meu: () => data<MeuPerfil>(apiClient.get('/perfil')),
   actualizar: (patch: Partial<PerfilEditavel>) => data<PerfilEditavel>(apiClient.patch('/perfil', patch)),
-  /** Envia a imagem para o bucket e associa-a ao perfil. Devolve o URL da app. */
+  /** Envia a imagem para o serviço de ficheiros e associa-a ao perfil. Devolve o URL da app. */
   async enviarImagem(tipo: 'foto' | 'capa', file: File, onProgresso?: (p: number) => void): Promise<string> {
-    const key = await enviarFicheiro(file, { finalidade: tipo, onProgresso });
-    const r = await data<{ url: string }>(apiClient.put('/perfil/imagem', { tipo, key }));
+    const enviado = await enviarFicheiro(file, { finalidade: tipo, onProgresso });
+    const r = await data<{ url: string }>(apiClient.put('/perfil/imagem', { tipo, key: enviado.id }));
     return r.url;
   },
   removerImagem: (tipo: 'foto' | 'capa') => data<{ url: null }>(apiClient.delete('/perfil/imagem', { params: { tipo } })),

@@ -1,6 +1,7 @@
 import type { Config } from './_shared/route-config';
 import { sql, jsonResponse, errorResponse, handleCors, publicErrorMessage } from './_shared/db';
 import { requireAuth, authErrorResponse, AuthError } from './_shared/auth';
+import { apagarObjecto, confirmarEnvio, StorageError, urlFicheiro } from './_shared/storage';
 
 /**
  * Eventos e Agenda.
@@ -17,12 +18,39 @@ import { requireAuth, authErrorResponse, AuthError } from './_shared/auth';
 const CATEGORIAS = ['oficial', 'formacao', 'comunidade', 'obrigatorio', 'bem_estar'];
 const ZONAS = ['sede', 'talatona', 'academia', 'postos', 'online'];
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const MAX_IMAGEM_URL = 2000;
+const ID_IMAGEM = /^\/api\/ficheiros\?key=([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/i;
+
+function idImagemAplicacao(imagem: string | null | undefined): string | null {
+  if (!imagem) return null;
+  return imagem.match(ID_IMAGEM)?.[1] ?? null;
+}
+
+function imagemValida(imagem: unknown): string | null | false {
+  if (imagem == null) return null;
+  if (typeof imagem !== 'string') return false;
+  const url = imagem.trim();
+  if (!url) return null;
+  const id = idImagemAplicacao(url);
+  if (id) return urlFicheiro(id);
+  if (url.length > MAX_IMAGEM_URL || !/^https?:\/\/\S+$/i.test(url)) return false;
+  return url;
+}
+
+/** Confirma uma imagem enviada por este utilizador. Links externos passam. */
+async function resolverImagem(imagem: string | null, userId: string): Promise<string | null> {
+  if (!imagem) return null;
+  const id = idImagemAplicacao(imagem);
+  if (!id) return imagem;
+  await confirmarEnvio('publicacao', id, `comunidade/${userId}`, userId);
+  return urlFicheiro(id);
+}
 
 /** Eventos com total de confirmados e se o utilizador confirmou. */
 function selectEventos(utilizadorId: string) {
   return sql`
     SELECT
-      e.id, e.titulo, e.descricao, e.categoria, e.local, e.zona, e.link_online,
+      e.id, e.titulo, e.descricao, e.categoria, e.local, e.zona, e.link_online, e.imagem,
       e.inicio, e.fim, e.dia_inteiro, e.destaque, e.created_at, e.updated_at,
       COALESCE(p.total, 0)::int AS confirmados,
       COALESCE(p.eu, false) AS eu_confirmei
@@ -53,6 +81,7 @@ type Payload = {
   local: string | null;
   zona: string | null;
   link_online: string | null;
+  imagem: string | null;
   inicio: string;
   fim: string | null;
   dia_inteiro: boolean;
@@ -72,6 +101,8 @@ function validar(body: Record<string, unknown>): string | Payload {
   const zona = typeof body.zona === 'string' && ZONAS.includes(body.zona) ? body.zona : null;
   const link = textoOuNull(body.link_online, 2000);
   if (link && !/^https?:\/\/\S+$/i.test(link)) return 'O link da reunião tem de começar por http:// ou https://';
+  const imagem = imagemValida(body.imagem);
+  if (imagem === false) return 'Link da imagem inválido (use um endereço http:// ou https://, ou carrega uma imagem)';
   return {
     titulo,
     descricao: textoOuNull(body.descricao, 5000),
@@ -79,6 +110,7 @@ function validar(body: Record<string, unknown>): string | Payload {
     local: textoOuNull(body.local, 200),
     zona,
     link_online: link,
+    imagem,
     inicio,
     fim,
     dia_inteiro: body.dia_inteiro === true,
@@ -161,9 +193,10 @@ export default async (req: Request): Promise<Response> => {
     if (req.method === 'POST' && !alvo) {
       const r = validar(await req.json().catch(() => ({})));
       if (typeof r === 'string') return errorResponse(r, 400);
+      const imagem = await resolverImagem(r.imagem, user.id);
       const rows = await sql`
-        INSERT INTO eventos (titulo, descricao, categoria, local, zona, link_online, inicio, fim, dia_inteiro, destaque, criado_por)
-        VALUES (${r.titulo}, ${r.descricao}, ${r.categoria}, ${r.local}, ${r.zona}, ${r.link_online},
+        INSERT INTO eventos (titulo, descricao, categoria, local, zona, link_online, imagem, inicio, fim, dia_inteiro, destaque, criado_por)
+        VALUES (${r.titulo}, ${r.descricao}, ${r.categoria}, ${r.local}, ${r.zona}, ${r.link_online}, ${imagem},
                 ${r.inicio}, ${r.fim}, ${r.dia_inteiro}, ${r.destaque}, ${user.id})
         RETURNING id
       `;
@@ -174,29 +207,39 @@ export default async (req: Request): Promise<Response> => {
     if (req.method === 'PATCH' && alvo && !sub) {
       const r = validar(await req.json().catch(() => ({})));
       if (typeof r === 'string') return errorResponse(r, 400);
+      const anterior = await sql<{ imagem: string | null }[]>`SELECT imagem FROM eventos WHERE id = ${alvo}`;
+      if (!anterior.length) return errorResponse('Evento não encontrado', 404);
+      const idAnterior = idImagemAplicacao(anterior[0].imagem);
+      const idPedido = idImagemAplicacao(r.imagem);
+      // A imagem já gravada não volta a ser confirmada: outro admin pode editá-la sem ser o autor do envio.
+      const imagem = idPedido && idPedido !== idAnterior ? await resolverImagem(r.imagem, user.id) : r.imagem;
       const rows = await sql`
         UPDATE eventos SET
           titulo = ${r.titulo}, descricao = ${r.descricao}, categoria = ${r.categoria},
-          local = ${r.local}, zona = ${r.zona}, link_online = ${r.link_online},
+          local = ${r.local}, zona = ${r.zona}, link_online = ${r.link_online}, imagem = ${imagem},
           inicio = ${r.inicio}, fim = ${r.fim}, dia_inteiro = ${r.dia_inteiro},
           destaque = ${r.destaque}, updated_at = NOW()
         WHERE id = ${alvo}
         RETURNING id
       `;
       if (!rows.length) return errorResponse('Evento não encontrado', 404);
+      const idNovo = idImagemAplicacao(imagem);
+      if (idAnterior && idAnterior !== idNovo) await apagarObjecto(idAnterior);
       return jsonResponse({ data: { ok: true } });
     }
 
     // ===== Remover =====
     if (req.method === 'DELETE' && alvo && !sub) {
-      const rows = await sql`DELETE FROM eventos WHERE id = ${alvo} RETURNING id`;
+      const rows = await sql<{ id: string; imagem: string | null }[]>`DELETE FROM eventos WHERE id = ${alvo} RETURNING id, imagem`;
       if (!rows.length) return errorResponse('Evento não encontrado', 404);
+      await apagarObjecto(idImagemAplicacao(rows[0].imagem));
       return jsonResponse({ data: { ok: true } });
     }
 
     return errorResponse('Método não suportado', 405);
   } catch (err) {
     if (err instanceof AuthError) return authErrorResponse(err);
+    if (err instanceof StorageError) return errorResponse(err.message, err.status);
     console.error('[eventos]', err);
     return errorResponse(publicErrorMessage(err, 'Erro interno'));
   }

@@ -33,8 +33,8 @@ export const anexosService = {
     file: File,
     onProgresso?: (p: number) => void,
   ): Promise<EtapaAnexo> {
-    const key = await enviarFicheiro(file, { finalidade: 'documento', progressoId, documentoChave, onProgresso });
-    return data<EtapaAnexo>(apiClient.post('/etapa-anexos', { progressoId, documentoChave, key, nome: file.name }));
+    const enviado = await enviarFicheiro(file, { finalidade: 'documento', progressoId, documentoChave, onProgresso });
+    return data<EtapaAnexo>(apiClient.post('/etapa-anexos', { progressoId, documentoChave, key: enviado.id, nome: file.name }));
   },
   remover: (id: string) => data<{ id: string }>(apiClient.delete(`/etapa-anexos/${id}`)),
 };

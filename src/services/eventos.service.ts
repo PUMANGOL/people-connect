@@ -11,6 +11,7 @@ export interface Evento {
   local: string | null;
   zona: ZonaEvento | null;
   link_online: string | null;
+  imagem: string | null;
   inicio: string;
   fim: string | null;
   dia_inteiro: boolean;
@@ -28,6 +29,7 @@ export interface EventoPayload {
   local?: string | null;
   zona?: ZonaEvento | null;
   link_online?: string | null;
+  imagem?: string | null;
   inicio: string;
   fim?: string | null;
   dia_inteiro?: boolean;

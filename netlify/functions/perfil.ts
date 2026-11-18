@@ -8,7 +8,7 @@ import { lerEstrutura } from './_shared/estrutura';
  * O meu perfil (utilizador da sessão).
  * GET    /api/perfil                  — dados pessoais, estrutura orgânica, reconhecimentos e actividade
  * PATCH  /api/perfil                  — { bio, localizacao, telefone, extensao, disponibilidade, posso_ajudar, interesses }
- * PUT    /api/perfil/imagem           — { tipo: 'foto' | 'capa', key } depois do envio para o bucket
+ * PUT    /api/perfil/imagem           — { tipo: 'foto', key } depois do envio para o serviço de ficheiros
  * DELETE /api/perfil/imagem?tipo=foto — remove a foto ou a capa
  */
 
@@ -213,7 +213,7 @@ export default async (req: Request): Promise<Response> => {
       if (tipo === 'capa') return errorResponse('A capa do perfil é fixa.', 400);
       if (tipo !== 'foto') return errorResponse('Tipo de imagem inválido', 400);
       const key = typeof body.key === 'string' ? body.key : '';
-      await confirmarEnvio(tipo, key, `perfis/${user.id}/${tipo}`);
+      await confirmarEnvio(tipo, key, `perfis/${user.id}/${tipo}`, user.id);
 
       const [anterior] = await sql`SELECT foto_key, capa_key FROM perfis_utilizador WHERE utilizador_id = ${user.id}`;
       if (tipo === 'foto') {
