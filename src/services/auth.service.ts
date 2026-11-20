@@ -19,12 +19,13 @@ if (typeof window !== 'undefined') {
   });
 }
 
-export async function loginLocal(email: string, password: string): Promise<{ user: AuthUser }> {
-  const result = await authClient.signIn.email({ email, password });
+/** `rememberMe: false` dá um cookie de sessão que termina quando o browser fecha. */
+export async function loginLocal(email: string, password: string, rememberMe = true): Promise<{ user: AuthUser }> {
+  const result = await authClient.signIn.email({ email, password, rememberMe });
   if (result.error) {
     const status = result.error.status;
     const message = status === 401 || /invalid|credential/i.test(result.error.message || '')
-      ? 'Email ou password inválidos.'
+      ? 'Email ou password incorrectos. Verifica os dados e tenta novamente.'
       : (result.error.message || 'Não foi possível iniciar sessão.');
     const err = new Error(message) as Error & { response?: { data?: { error?: string } } };
     err.response = { data: { error: message } };

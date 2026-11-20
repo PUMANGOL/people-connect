@@ -1,22 +1,91 @@
-import { useEffect, useState, type FormEvent, type KeyboardEvent } from 'react';
+import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import { AlertCircle, Eye, EyeOff, Lock, Mail, ShieldCheck } from 'lucide-react';
+import {
+  ArrowBigUp,
+  ArrowRight,
+  CircleAlert,
+  Eye,
+  EyeOff,
+  GraduationCap,
+  HeartPulse,
+  KeyRound,
+  LoaderCircle,
+  Lock,
+  Mail,
+  MoonStar,
+  ShieldCheck,
+  Sparkles,
+  Sun,
+  Sunrise,
+  Users,
+} from 'lucide-react';
 import { LoginPalco } from '@/src/components/login/LoginPalco';
 import { ThemeToggle } from '@/src/components/ThemeToggle';
-import { Button } from '@/src/components/ui/button';
 import { useAuthStore } from '@/src/store';
 import { loginLocal } from '@/src/services/auth.service';
 import { authClient } from '@/src/lib/auth-client';
 import { apiClient } from '@/src/services/api.client';
-import type { AuthUser, UserRole } from '@/lib/types';
+import type { AuthUser } from '@/lib/types';
 import { homeForRole, APP_SLOGAN, EMAIL_DOMINIO } from '@/lib/constants';
 
-const PILARES = ['Pessoas', 'Cultura', 'Saúde', 'Desenvolvimento'] as const;
+const PILARES = [
+  { nome: 'Pessoas', Icone: Users },
+  { nome: 'Cultura', Icone: Sparkles },
+  { nome: 'Saúde', Icone: HeartPulse },
+  { nome: 'Desenvolvimento', Icone: GraduationCap },
+] as const;
 
-const campoClass =
-  'flex h-11 items-center overflow-hidden rounded-md border border-input bg-white transition-[border-color,box-shadow] duration-150 focus-within:border-primary focus-within:shadow-focus';
-const inputClass =
-  'login-input h-full min-w-0 w-full appearance-none border-0 bg-transparent text-[0.9375rem] text-foreground outline-none placeholder:text-neutral-400';
+const ZONA = 'Africa/Luanda';
+const DIAS = ['Domingo', 'Segunda-feira', 'Terça-feira', 'Quarta-feira', 'Quinta-feira', 'Sexta-feira', 'Sábado'];
+const MESES = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+/** Tempo do ecrã «Sessão iniciada» antes de entrar (o anel demora ~1,2 s a fechar). */
+const DURACAO_SUCESSO_MS = 1100;
+
+type Periodo = 'manha' | 'tarde' | 'noite';
+type Campo = 'email' | 'password';
+
+const SAUDACOES: Record<Periodo, { texto: string; Icone: typeof Sun }> = {
+  manha: { texto: 'Bom dia', Icone: Sunrise },
+  tarde: { texto: 'Boa tarde', Icone: Sun },
+  noite: { texto: 'Boa noite', Icone: MoonStar },
+};
+
+function agoraEmLuanda(agora = new Date()) {
+  const p: Record<string, string> = {};
+  for (const parte of new Intl.DateTimeFormat('en-US', {
+    timeZone: ZONA,
+    month: 'numeric',
+    day: 'numeric',
+    hour: 'numeric',
+    hourCycle: 'h23',
+    weekday: 'short',
+  }).formatToParts(agora)) {
+    p[parte.type] = parte.value;
+  }
+  const hora = Number(p.hour) % 24;
+  const periodo: Periodo = hora >= 5 && hora < 12 ? 'manha' : hora >= 12 && hora < 19 ? 'tarde' : 'noite';
+  const dia = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].indexOf(p.weekday);
+  return { periodo, data: `${DIAS[dia]}, ${p.day} de ${MESES[Number(p.month) - 1]}` };
+}
+
+/** Resto do domínio corporativo a sugerir enquanto se escreve o email. */
+function restoDoDominio(valor: string) {
+  if (!valor || /\s/.test(valor)) return '';
+  const arroba = valor.indexOf('@');
+  if (arroba < 0) return `@${EMAIL_DOMINIO}`;
+  if (valor.indexOf('@', arroba + 1) >= 0) return '';
+  const dominio = valor.slice(arroba + 1).toLowerCase();
+  if (dominio.length >= EMAIL_DOMINIO.length) return '';
+  return EMAIL_DOMINIO.startsWith(dominio) ? EMAIL_DOMINIO.slice(dominio.length) : '';
+}
+
+function iniciais(nome: string | undefined, email: string) {
+  const partes = (nome?.trim() ? nome.trim().split(/\s+/) : email.split('@')[0].split(/[._-]+/)).filter(Boolean);
+  if (!partes.length) return 'PC';
+  const ultima = partes.length > 1 ? partes[partes.length - 1][0] : (partes[0][1] ?? '');
+  return (partes[0][0] + ultima).toUpperCase();
+}
 
 function destaquePessoas(slogan: string) {
   const marca = 'pessoas';
@@ -25,25 +94,10 @@ function destaquePessoas(slogan: string) {
   return (
     <>
       {slogan.slice(0, idx)}
-      <span className="text-navy-200">{slogan.slice(idx, idx + marca.length)}</span>
+      <span className="a-hl">{slogan.slice(idx, idx + marca.length)}</span>
       {slogan.slice(idx + marca.length)}
     </>
   );
-}
-
-function linhaDeLuanda(agora = new Date()) {
-  const zona = 'Africa/Luanda';
-  const hora = Number(
-    new Intl.DateTimeFormat('pt-PT', { timeZone: zona, hour: 'numeric', hourCycle: 'h23' }).format(agora),
-  );
-  const saudacao = hora < 12 ? 'Bom dia' : hora < 19 ? 'Boa tarde' : 'Boa noite';
-  const data = new Intl.DateTimeFormat('pt-PT', {
-    timeZone: zona,
-    weekday: 'long',
-    day: 'numeric',
-    month: 'long',
-  }).format(agora);
-  return `${saudacao} · ${data.charAt(0).toUpperCase()}${data.slice(1)}`;
 }
 
 export default function Login() {
@@ -51,20 +105,35 @@ export default function Login() {
   const { setUser } = useAuthStore();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
+  const [mostrarPassword, setMostrarPassword] = useState(false);
+  const [manterSessao, setManterSessao] = useState(true);
   const [capsLock, setCapsLock] = useState(false);
-  const [isLoggingIn, setIsLoggingIn] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [erroTick, setErroTick] = useState(0);
+  const [aEntrar, setAEntrar] = useState(false);
+  const [erros, setErros] = useState<Partial<Record<Campo, string>>>({});
+  const [alerta, setAlerta] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
-  const [saudacao, setSaudacao] = useState<string | null>(null);
+  const [momento, setMomento] = useState<ReturnType<typeof agoraEmLuanda> | null>(null);
+  const [sugerir, setSugerir] = useState(false);
+  const [sucesso, setSucesso] = useState<string | null>(null);
+
+  const formRef = useRef<HTMLFormElement>(null);
+  const emailRef = useRef<HTMLInputElement>(null);
+  const passwordRef = useRef<HTMLInputElement>(null);
+  const timerSucesso = useRef<number | undefined>(undefined);
 
   const [params] = useSearchParams();
-  const sugestao = /^[^\s@]{1,64}$/.test(email) ? `@${EMAIL_DOMINIO}` : '';
+  const sugestao = sugerir ? restoDoDominio(email) : '';
   const ano = new Date().getFullYear();
+  const saudacao = momento ? SAUDACOES[momento.periodo] : null;
 
   useEffect(() => {
-    setSaudacao(linhaDeLuanda());
+    const actualizar = () => setMomento(agoraEmLuanda());
+    actualizar();
+    const id = window.setInterval(actualizar, 20_000);
+    return () => {
+      window.clearInterval(id);
+      window.clearTimeout(timerSucesso.current);
+    };
   }, []);
 
   useEffect(() => {
@@ -98,236 +167,338 @@ export default function Login() {
     };
   }, [navigate, params, setUser]);
 
-  function redirectByRole(role: UserRole) {
-    navigate(homeForRole(role));
+  function abanar() {
+    const el = formRef.current;
+    if (!el) return;
+    el.classList.remove('lp-shake');
+    void el.offsetWidth;
+    el.classList.add('lp-shake');
   }
 
-  function falhar(mensagem: string) {
-    setError(mensagem);
-    setErroTick((n) => n + 1);
+  function limparErro(campo: Campo) {
+    setErros((actual) => (actual[campo] ? { ...actual, [campo]: undefined } : actual));
+    setAlerta(null);
+  }
+
+  function lerSugestao(el: HTMLInputElement) {
+    const noFim = el.selectionStart === el.value.length && el.selectionEnd === el.value.length;
+    const cabe = el.scrollWidth <= el.clientWidth + 1;
+    setSugerir(document.activeElement === el && noFim && cabe);
   }
 
   function completarDominio(e: KeyboardEvent<HTMLInputElement>) {
-    if (!sugestao || e.shiftKey) return;
-    if (e.key !== 'Tab' && e.key !== 'ArrowRight') return;
+    if (!sugestao) return;
+    if (!((e.key === 'Tab' && !e.shiftKey) || e.key === 'ArrowRight')) return;
     const el = e.currentTarget;
     if (el.selectionStart !== email.length || el.selectionEnd !== email.length) return;
     e.preventDefault();
     setEmail(email + sugestao);
-    if (error) setError(null);
+    limparErro('email');
   }
 
   function lerCapsLock(e: KeyboardEvent<HTMLInputElement>) {
     setCapsLock(e.getModifierState('CapsLock'));
   }
 
+  function alternarPassword() {
+    setMostrarPassword((s) => !s);
+    const el = passwordRef.current;
+    if (!el) return;
+    el.focus({ preventScroll: true });
+    requestAnimationFrame(() => {
+      try {
+        el.setSelectionRange(el.value.length, el.value.length);
+      } catch {
+        /* alguns browsers não deixam posicionar o cursor neste tipo de campo */
+      }
+    });
+  }
+
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
-    if (!email.trim() || !password) {
-      falhar('Preenche o email e a password.');
+    setAlerta(null);
+
+    let valor = email.trim();
+    if (valor && !valor.includes('@')) valor += `@${EMAIL_DOMINIO}`;
+    if (valor !== email) setEmail(valor);
+
+    const erroEmail = !valor
+      ? 'Indica o teu email corporativo.'
+      : !EMAIL_RE.test(valor)
+        ? `Usa o teu email corporativo @${EMAIL_DOMINIO}.`
+        : undefined;
+    const erroPassword = password ? undefined : 'Indica a tua password.';
+    setErros({ email: erroEmail, password: erroPassword });
+    if (erroEmail || erroPassword) {
+      (erroEmail ? emailRef : passwordRef).current?.focus();
+      abanar();
       return;
     }
-    if (!email.includes('@')) {
-      falhar(`Usa o email corporativo @${EMAIL_DOMINIO}.`);
-      return;
-    }
-    setIsLoggingIn(true);
-    setError(null);
+
+    setAEntrar(true);
     try {
-      const { user } = await loginLocal(email.trim(), password);
+      const { user } = await loginLocal(valor, password, manterSessao);
       setUser(user);
-      redirectByRole(user.role);
+      setSucesso(iniciais(user.nome, valor));
+      const reduzido = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      timerSucesso.current = window.setTimeout(
+        () => navigate(homeForRole(user.role)),
+        reduzido ? 0 : DURACAO_SUCESSO_MS,
+      );
     } catch (err) {
       const axiosMsg = (err as { response?: { data?: { error?: string } } })?.response?.data?.error;
-      falhar(axiosMsg ?? 'Não foi possível iniciar sessão. Verifica as credenciais.');
+      setAlerta(axiosMsg ?? 'Não foi possível iniciar sessão. Verifica os dados e tenta novamente.');
+      abanar();
+      passwordRef.current?.focus();
+      passwordRef.current?.select();
     } finally {
-      setIsLoggingIn(false);
+      setAEntrar(false);
     }
   }
 
-  return (
-    <div className="flex min-h-dvh flex-col lg:flex-row">
-      <aside className="relative flex flex-col overflow-hidden bg-navy-900 text-white lg:w-[52%] xl:w-[50%]" aria-label="Pumangol People Connect">
-        <div
-          aria-hidden
-          className="pointer-events-none absolute inset-0 bg-[radial-gradient(70%_55%_at_0%_100%,rgba(33,106,65,0.55),transparent_62%)]"
-        />
+  const descricaoPassword = [capsLock && 'login-caps', erros.password && 'login-password-erro']
+    .filter(Boolean)
+    .join(' ') || undefined;
 
-        <header className="relative flex items-center justify-between gap-4 px-5 py-5 sm:px-8 lg:px-12 lg:pt-10">
-          <div className="flex items-center gap-3">
-            <img src="/people-connect-emblema.png" alt="" className="h-11 w-auto sm:h-12" />
-            <div className="leading-tight">
-              <p className="text-xs font-semibold uppercase tracking-[0.06em] text-white/60">Pumangol</p>
-              <p className="text-xl font-semibold leading-[1.3] tracking-[-0.02em]">People Connect</p>
-            </div>
+  return (
+    <div className="pc-login a-shell">
+      {/* ============ Painel de marca ============ */}
+      <aside className="a-brand" aria-label="Pumangol People Connect">
+        <header className="a-top">
+          <div className="pc-lockup">
+            <img src="/people-connect-emblema.png" alt="" className="pc-mark" />
+            <span className="pc-lockup-text">
+              <span className="pc-lockup-eyebrow">Pumangol</span>
+              <span className="pc-lockup-name">People Connect</span>
+            </span>
           </div>
-          <p className="hidden items-center gap-2 rounded-full border border-white/15 bg-white/10 px-3 py-1.5 text-xs font-medium tracking-[0.04em] text-white/90 lg:inline-flex">
+          <span className="a-chip">
             <span className="lp-live" aria-hidden />
-            Pessoas e Cultura
-          </p>
+            Pessoas &amp; Cultura
+          </span>
         </header>
 
-        <div className="relative hidden min-h-0 lg:flex lg:flex-1">
-          <LoginPalco />
-        </div>
+        <LoginPalco />
 
-        <div className="relative hidden px-12 pb-8 pt-2 lg:block xl:px-16">
-          <p className="max-w-xl text-[2rem] font-bold leading-[1.15] tracking-[-0.02em]">
-            {destaquePessoas(APP_SLOGAN)}
+        <div className="a-copy">
+          <p className="a-headline">{destaquePessoas(APP_SLOGAN)}</p>
+          <p className="a-lede">
+            Na Pumangol, cuidamos de cada pessoa desde o primeiro contacto — porque acreditamos que é nas
+            pessoas que construímos o nosso futuro.
           </p>
-          <p className="lp-lede mt-4 max-w-md text-[0.9375rem] font-normal leading-[1.6] text-white/75">
-            Na Pumangol, cuidamos de cada pessoa desde o primeiro contacto — porque acreditamos
-            que é nas pessoas que construímos o nosso futuro.
-          </p>
-          <p className="mt-6 text-[0.9375rem] leading-[1.6] text-white/80">
-            {PILARES.map((pilar, i) => (
-              <span key={pilar}>
-                {i > 0 && <span className="mx-2.5 text-white/35">·</span>}
-                {pilar}
-              </span>
+          <ul className="a-pillars" aria-label="Pilares">
+            {PILARES.map(({ nome, Icone }) => (
+              <li key={nome}>
+                <Icone aria-hidden />
+                {nome}
+              </li>
             ))}
-          </p>
+          </ul>
         </div>
-
-        <div
-          aria-hidden
-          className="relative mt-auto h-[3px] w-full"
-          style={{ background: 'linear-gradient(90deg, #009845 0 62%, #ffffff 62% 66%, #E30613 66% 100%)' }}
-        />
       </aside>
 
-      <main className="relative flex min-h-0 flex-1 flex-col bg-surface-secondary">
-        <div className="flex justify-end px-5 pt-4 sm:px-8">
-          <ThemeToggle />
+      {/* ============ Formulário ============ */}
+      <main className="a-main">
+        <div className="a-toolbar">
+          <ThemeToggle className="pc-theme-btn" />
         </div>
 
-        <div className="flex flex-1 items-center justify-center px-5 py-8 sm:px-10">
-          <div className="lp-in w-full max-w-[400px]">
-            <p className="mb-3 min-h-5 text-[0.8125rem] leading-[1.45] text-muted-foreground">{saudacao}</p>
-            <h1 className="text-[1.75rem] font-bold leading-[1.2] tracking-[-0.02em] text-navy-900">Iniciar sessão</h1>
-            <p className="mt-1.5 text-[0.9375rem] font-normal leading-[1.5] text-muted-foreground">
-              Entra com o email corporativo Pumangol.
-            </p>
-
-            {notice && !error && (
-              <p className="mt-5 rounded-md border border-neutral-200 bg-neutral-50 px-3.5 py-3 text-sm text-navy-800">
-                {notice}
-              </p>
-            )}
-
-            {error && (
-              <div key={erroTick} className="lp-shake mt-5 flex items-start gap-2.5 rounded-md border border-error-100 bg-error-50 px-3.5 py-3" role="alert">
-                <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-error-500" />
-                <p className="text-sm text-error-600">{error}</p>
-              </div>
-            )}
-
-            <form onSubmit={handleSubmit} className="mt-6 space-y-4" noValidate>
-              <div>
-                <label htmlFor="login-email" className="mb-1.5 block text-[0.9375rem] font-semibold leading-[1.4] text-navy-800">
-                  Email corporativo
-                </label>
-                <div className={campoClass}>
-                  <span className="flex w-10 shrink-0 items-center justify-center text-navy-400">
-                    <Mail className="h-4 w-4" />
-                  </span>
-                  <div className="relative min-w-0 flex-1 self-stretch">
-                    {sugestao && (
-                      <span aria-hidden className="pointer-events-none absolute inset-0 flex items-center overflow-hidden pr-3 text-[0.9375rem]">
-                        <span className="invisible whitespace-pre">{email}</span>
-                        <span className="whitespace-pre text-neutral-400">{sugestao}</span>
-                      </span>
-                    )}
-                    <input
-                      id="login-email"
-                      name="email"
-                      type="text"
-                      inputMode="email"
-                      value={email}
-                      onChange={(e) => { setEmail(e.target.value); if (error) setError(null); }}
-                      onKeyDown={completarDominio}
-                      placeholder={`nome@${EMAIL_DOMINIO}`}
-                      autoComplete="username"
-                      autoCapitalize="none"
-                      autoCorrect="off"
-                      spellCheck={false}
-                      aria-invalid={error ? true : undefined}
-                      className={`${inputClass} relative z-10 pr-3`}
-                    />
-                  </div>
-                  {sugestao && (
-                    <span className="mr-3 shrink-0 text-[11px] text-neutral-400">Tab</span>
+        <div className="a-form">
+          <div className="pc-card">
+            {sucesso ? (
+              <section className="pc-view pc-success lp-in" role="status" aria-live="polite">
+                <div className="pc-avatar-xl">
+                  <span>{sucesso}</span>
+                  <svg className="pc-ring" viewBox="0 0 100 100" aria-hidden>
+                    <circle cx="50" cy="50" r="46" />
+                  </svg>
+                </div>
+                <h1 className="pc-title">Sessão iniciada</h1>
+                <p className="pc-sub">A preparar o teu espaço…</p>
+                <div className="pc-progress" aria-hidden>
+                  <span />
+                </div>
+              </section>
+            ) : (
+              <section className="pc-view lp-in" aria-labelledby="login-titulo">
+                <p className="pc-greet">
+                  {saudacao && momento && (
+                    <>
+                      <saudacao.Icone aria-hidden />
+                      <strong>{saudacao.texto}</strong>
+                      <span className="pc-dot" aria-hidden>·</span>
+                      <span>{momento.data}</span>
+                    </>
                   )}
-                </div>
-              </div>
+                </p>
+                <h1 className="pc-title" id="login-titulo">Iniciar sessão</h1>
+                <p className="pc-sub">Entra com o email corporativo Pumangol.</p>
 
-              <div>
-                <div className="mb-1.5 flex items-baseline justify-between gap-3">
-                  <label htmlFor="login-password" className="text-[0.9375rem] font-semibold leading-[1.4] text-navy-800">
-                    Password
-                  </label>
-                  <Link
-                    to="/recuperar-password"
-                    className="text-[0.8125rem] font-semibold leading-[1.45] text-neutral-600 underline-offset-4 hover:text-navy-800 hover:underline"
-                  >
-                    Esqueci-me
-                  </Link>
-                </div>
-                <div className={campoClass}>
-                  <span className="flex w-10 shrink-0 items-center justify-center text-navy-400">
-                    <Lock className="h-4 w-4" />
-                  </span>
-                  <input
-                    id="login-password"
-                    name="password"
-                    type={showPassword ? 'text' : 'password'}
-                    value={password}
-                    onChange={(e) => { setPassword(e.target.value); if (error) setError(null); }}
-                    onKeyDown={lerCapsLock}
-                    onKeyUp={lerCapsLock}
-                    onBlur={() => setCapsLock(false)}
-                    placeholder="A tua password"
-                    autoComplete="current-password"
-                    aria-invalid={error ? true : undefined}
-                    className={inputClass}
-                  />
+                <form
+                  ref={formRef}
+                  className="pc-form"
+                  onSubmit={handleSubmit}
+                  onAnimationEnd={(e) => {
+                    if (e.target === e.currentTarget) e.currentTarget.classList.remove('lp-shake');
+                  }}
+                  noValidate
+                >
+                  {notice && !alerta && <p className="pc-notice" role="status">{notice}</p>}
+
+                  {alerta && (
+                    <div className="pc-alert" role="alert">
+                      <CircleAlert aria-hidden />
+                      <span>{alerta}</span>
+                    </div>
+                  )}
+
+                  <div className="pc-field" data-invalid={erros.email ? '' : undefined}>
+                    <label className="pc-label" htmlFor="login-email">Email corporativo</label>
+                    <div className="pc-control pc-control-email" data-suggest={sugestao ? '' : undefined}>
+                      <Mail className="pc-lead" aria-hidden />
+                      <input
+                        ref={emailRef}
+                        id="login-email"
+                        name="email"
+                        type="text"
+                        inputMode="email"
+                        value={email}
+                        onChange={(e) => {
+                          setEmail(e.target.value);
+                          limparErro('email');
+                          lerSugestao(e.currentTarget);
+                        }}
+                        onKeyDown={completarDominio}
+                        onSelect={(e) => lerSugestao(e.currentTarget)}
+                        onFocus={(e) => lerSugestao(e.currentTarget)}
+                        onBlur={() => setSugerir(false)}
+                        placeholder={`nome.apelido@${EMAIL_DOMINIO}`}
+                        autoComplete="username"
+                        autoCapitalize="none"
+                        autoCorrect="off"
+                        spellCheck={false}
+                        aria-invalid={erros.email ? true : undefined}
+                        aria-describedby={erros.email ? 'login-email-erro' : undefined}
+                        className="pc-input login-input"
+                      />
+                      {sugestao && (
+                        <>
+                          <span className="pc-ghost" aria-hidden>
+                            <span className="pc-ghost-typed">{email}</span>
+                            <span className="pc-ghost-rest">{sugestao}</span>
+                          </span>
+                          <kbd className="pc-kbd" aria-hidden>Tab</kbd>
+                        </>
+                      )}
+                    </div>
+                    {erros.email && (
+                      <p className="pc-error" id="login-email-erro">
+                        <CircleAlert aria-hidden />
+                        <span>{erros.email}</span>
+                      </p>
+                    )}
+                  </div>
+
+                  <div className="pc-field" data-invalid={erros.password ? '' : undefined}>
+                    <div className="pc-label-row">
+                      <label className="pc-label" htmlFor="login-password">Password</label>
+                      <Link className="pc-link" to="/recuperar-password">Esqueci-me</Link>
+                    </div>
+                    <div className="pc-control">
+                      <Lock className="pc-lead" aria-hidden />
+                      <input
+                        ref={passwordRef}
+                        id="login-password"
+                        name="password"
+                        type={mostrarPassword ? 'text' : 'password'}
+                        value={password}
+                        onChange={(e) => {
+                          setPassword(e.target.value);
+                          limparErro('password');
+                        }}
+                        onKeyDown={lerCapsLock}
+                        onKeyUp={lerCapsLock}
+                        onBlur={() => setCapsLock(false)}
+                        autoComplete="current-password"
+                        aria-invalid={erros.password ? true : undefined}
+                        aria-describedby={descricaoPassword}
+                        className="pc-input login-input"
+                      />
+                      <button
+                        type="button"
+                        className="pc-icon-btn"
+                        onClick={alternarPassword}
+                        aria-label={mostrarPassword ? 'Ocultar password' : 'Mostrar password'}
+                        aria-pressed={mostrarPassword}
+                      >
+                        {mostrarPassword ? <EyeOff aria-hidden /> : <Eye aria-hidden />}
+                      </button>
+                    </div>
+                    {capsLock && (
+                      <p className="pc-caps" id="login-caps">
+                        <ArrowBigUp aria-hidden />
+                        Caps Lock activo
+                      </p>
+                    )}
+                    {erros.password && (
+                      <p className="pc-error" id="login-password-erro">
+                        <CircleAlert aria-hidden />
+                        <span>{erros.password}</span>
+                      </p>
+                    )}
+                  </div>
+
+                  <div className="pc-row">
+                    <label className="pc-switch">
+                      <input
+                        type="checkbox"
+                        name="remember"
+                        checked={manterSessao}
+                        onChange={(e) => setManterSessao(e.target.checked)}
+                      />
+                      <span className="pc-track" aria-hidden>
+                        <span className="pc-thumb" />
+                      </span>
+                      Manter sessão iniciada
+                    </label>
+                  </div>
+
                   <button
-                    type="button"
-                    onClick={() => setShowPassword((s) => !s)}
-                    className="mr-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-navy-400 hover:bg-navy-50 hover:text-navy-700"
-                    aria-label={showPassword ? 'Esconder password' : 'Mostrar password'}
-                    aria-pressed={showPassword}
+                    type="submit"
+                    className="pc-btn pc-btn-primary"
+                    disabled={aEntrar}
+                    data-state={aEntrar ? 'loading' : undefined}
+                    aria-busy={aEntrar || undefined}
                   >
-                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    <span>{aEntrar ? 'A entrar…' : 'Entrar'}</span>
+                    {aEntrar ? <LoaderCircle className="ic-spin" aria-hidden /> : <ArrowRight className="ic-arrow" aria-hidden />}
                   </button>
-                </div>
-                {capsLock && (
-                  <p className="mt-1.5 text-xs font-medium text-warning-700">Caps Lock activo</p>
-                )}
-              </div>
+                </form>
 
-              <Button type="submit" variant="primary" className="lp-submit mt-1 h-11 w-full" loading={isLoggingIn}>
-                {isLoggingIn ? 'A entrar…' : 'Entrar'}
-              </Button>
-            </form>
+                <p className="pc-divider">Primeira vez?</p>
+                <Link to="/primeiro-acesso" className="pc-first">
+                  <span className="pc-first-ic">
+                    <KeyRound aria-hidden />
+                  </span>
+                  <span className="pc-first-text">
+                    <b>Primeiro acesso</b>
+                    <span>Recebe no email corporativo um link para definires a tua password.</span>
+                  </span>
+                  <ArrowRight className="pc-first-arrow" aria-hidden />
+                </Link>
 
-            <p className="mt-4 text-center text-[0.8125rem] leading-[1.45] text-muted-foreground">
-              Ainda sem palavra-passe?{' '}
-              <Link to="/primeiro-acesso" className="font-semibold text-navy-800 underline-offset-4 hover:underline">
-                Primeiro Acesso
-              </Link>
-            </p>
-
-            <p className="mt-6 text-center text-[0.8125rem] leading-[1.45] text-muted-foreground">
-              Sem acesso? Contacta a <span className="font-medium text-neutral-700">Direcção de Pessoas e Cultura</span>.
-            </p>
+                <p className="pc-help">
+                  Sem acesso? Contacta a <strong>Direcção de Pessoas e Cultura</strong>.
+                </p>
+              </section>
+            )}
           </div>
         </div>
 
-        <footer className="flex flex-wrap items-center justify-between gap-x-6 gap-y-1 border-t border-neutral-200 px-5 py-4 text-xs font-medium tracking-[0.04em] text-neutral-500 sm:px-8">
-          <span className="inline-flex items-center gap-1.5">
-            <ShieldCheck className="h-3.5 w-3.5 text-neutral-500" />
-            Ligação segura · Acesso reservado a colaboradores
+        <footer className="a-foot">
+          <span>
+            <ShieldCheck aria-hidden />
+            <span>Ligação segura · Acesso reservado a colaboradores</span>
           </span>
           <span>© {ano} Pumangol · Apoio técnico: DSI</span>
         </footer>
